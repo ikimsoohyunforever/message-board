@@ -3,59 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📝 Azure留言板</title>
+    <title>📝 Azure云端留言板</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
-        body { background: #f0f2f5; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #0078d4; margin-bottom: 10px; }
-        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
-        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; }
-        textarea { min-height: 100px; }
-        .buttons { display: flex; gap: 10px; margin: 10px 0; }
-        button { flex: 1; padding: 10px; border: none; border-radius: 5px; cursor: pointer; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .header { background: linear-gradient(90deg, #0078d4, #00bcf2); color: white; padding: 30px; text-align: center; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .status { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 20px; display: inline-block; margin-top: 10px; }
+        .form-section { padding: 30px; }
+        input, textarea { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 16px; }
+        textarea { min-height: 120px; resize: vertical; }
+        .buttons { display: flex; gap: 10px; margin: 20px 0; }
+        button { flex: 1; padding: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
         .btn-primary { background: #0078d4; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
+        .btn-primary:hover { background: #106ebe; transform: translateY(-2px); }
+        .btn-refresh { background: #6c757d; color: white; }
+        .btn-refresh:hover { background: #5a6268; transform: translateY(-2px); }
         .btn-success { background: #28a745; color: white; }
-        .messages { margin-top: 20px; }
-        .message { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #0078d4; }
-        .debug { background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .btn-success:hover { background: #218838; transform: translateY(-2px); }
+        .messages-section { padding: 30px; max-height: 500px; overflow-y: auto; background: #f8f9fa; }
+        .message { background: white; padding: 20px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 4px solid #28a745; }
+        .msg-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .msg-name { font-weight: bold; color: #0078d4; font-size: 1.1rem; }
+        .msg-time { color: #666; font-size: 0.9rem; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .loading i { font-size: 48px; margin-bottom: 20px; color: #0078d4; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 10px; margin: 10px 0; border: 1px solid #f5c6cb; }
+        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 10px; margin: 10px 0; border: 1px solid #c3e6cb; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 10px; margin: 10px 0; border: 1px solid #bee5eb; }
+        @media (max-width: 768px) {
+            .container { margin: 10px; }
+            .header { padding: 20px; }
+            .header h1 { font-size: 2rem; }
+            .form-section, .messages-section { padding: 20px; }
+            .buttons { flex-direction: column; }
+        }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <h1>📝 Azure留言板</h1>
-        
-        <div id="status" class="status disconnected">
-            正在初始化...
-        </div>
-        
-        <div>
-            <input type="text" id="name" placeholder="你的名字（可选）">
-            <textarea id="message" placeholder="输入留言内容..."></textarea>
-            
-            <div class="buttons">
-                <button class="btn-primary" id="submit-btn">发布留言</button>
-                <button class="btn-secondary" id="clear-btn">清空本地</button>
-                <button class="btn-success" id="direct-test-btn">直接测试连接</button>
+        <div class="header">
+            <h1><i class="fas fa-cloud"></i> Azure云端留言板</h1>
+            <div class="status" id="status">
+                <i class="fas fa-sync fa-spin"></i> 正在连接Azure...
             </div>
         </div>
         
-        <div class="debug">
-            <strong>调试信息：</strong>
-            <div id="debug"></div>
+        <div class="form-section">
+            <div id="message-container">
+                <div class="info" id="info-message">
+                    <i class="fas fa-info-circle"></i> 正在初始化云端连接...
+                </div>
+            </div>
+            
+            <input type="text" id="name" placeholder="你的名字（可选）" maxlength="20">
+            <textarea id="message" placeholder="输入留言内容... (Ctrl+Enter快速提交)" maxlength="500"></textarea>
+            
+            <div class="buttons">
+                <button class="btn-primary" id="submit-btn">
+                    <i class="fas fa-paper-plane"></i> 发布到云端
+                </button>
+                <button class="btn-refresh" id="refresh-btn">
+                    <i class="fas fa-sync-alt"></i> 刷新留言
+                </button>
+                <button class="btn-success" id="reconnect-btn">
+                    <i class="fas fa-plug"></i> 重新连接
+                </button>
+            </div>
         </div>
         
-        <div class="messages" id="messages">
-            正在加载留言...
+        <div class="messages-section" id="messages-container">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <h3>正在从云端加载留言...</h3>
+                <p>请稍候</p>
+            </div>
         </div>
     </div>
 
     <script>
         // ============================================
-        // 配置
+        // Azure配置
         // ============================================
         const AZURE_CONFIG = {
             accountName: 'messageboard2025',
@@ -63,337 +93,369 @@
             sasToken: '?sv=2024-11-04&ss=t&srt=co&sp=rwdl&se=2026-02-12T23:59:29Z&st=2025-12-02T15:44:29Z&spr=https&sig=1KAtGlI7tHgxyzXpqMKfn9G7EHBzsszqMxhaMKTfCbw%3D'
         };
         
-        // 构建URL
         const BASE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}`;
         const FULL_URL = `${BASE_URL}${AZURE_CONFIG.sasToken}`;
         
+        // 代理列表（按优先级排序）
+        const PROXIES = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://api.codetabs.com/v1/proxy?quest=',
+            'https://thingproxy.freeboard.io/fetch/'
+        ];
+        
+        let currentProxy = null;
+        let isConnected = false;
+        
         // ============================================
-        // 主函数
+        // 初始化
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
-            log('页面加载完成');
-            log(`Azure表URL: ${BASE_URL}`);
-            log(`SAS令牌: ${AZURE_CONFIG.sasToken.substring(0, 50)}...`);
+            console.log('Azure留言板初始化');
+            console.log('表URL:', BASE_URL);
             
             setupEventListeners();
-            loadLocalMessages();
-            
-            // 测试连接
-            testConnection();
+            initConnection();
         });
-
-        // 测试连接 - 直接访问URL（不使用Fetch API）
-        async function testConnection() {
-            try {
-                updateStatus('正在测试Azure连接...');
-                log('方法1: 直接测试连接...');
-                
-                // 方法1: 使用JSONP方式（绕过CORS）
-                await testWithJsonp();
-                
-            } catch (error) {
-                log(`连接测试失败: ${error.message}`);
-                updateStatus('❌ Azure连接失败，使用本地存储');
+        
+        // ============================================
+        // 连接管理
+        // ============================================
+        async function initConnection() {
+            showMessage('info', '正在初始化云端连接...');
+            updateStatus('正在连接Azure...');
+            
+            // 测试连接并选择最佳代理
+            await findBestProxy();
+            
+            if (isConnected) {
+                showMessage('success', '✅ Azure云端连接成功！留言将永久保存在Azure云端。');
+                loadMessages();
+            } else {
+                showMessage('error', '❌ 无法连接Azure，请检查网络或稍后重试。');
             }
         }
-
-        // 使用JSONP方式测试
-        async function testWithJsonp() {
-            return new Promise((resolve, reject) => {
-                // 创建一个临时iframe来测试连接
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = `${FULL_URL}&$top=1&callback=testCallback`;
-                document.body.appendChild(iframe);
-                
-                // 全局回调函数
-                window.testCallback = function(data) {
-                    log('JSONP测试成功');
-                    document.body.removeChild(iframe);
-                    resolve(true);
-                };
-                
-                // 超时处理
-                setTimeout(() => {
-                    // 尝试方法2: 使用代理
-                    testWithProxy().then(resolve).catch(reject);
-                }, 3000);
-            });
-        }
-
-        // 使用代理测试
-        async function testWithProxy() {
-            log('方法2: 使用CORS代理...');
+        
+        async function findBestProxy() {
+            showMessage('info', '正在测试网络连接...');
             
-            // 尝试多个免费CORS代理
-            const proxies = [
-                'https://api.allorigins.win/raw?url=',
-                'https://corsproxy.io/?',
-                'https://api.codetabs.com/v1/proxy?quest='
-            ];
-            
-            for (let proxy of proxies) {
+            // 测试每个代理
+            for (let proxy of PROXIES) {
                 try {
-                    const proxyUrl = `${proxy}${encodeURIComponent(FULL_URL + '&$top=1')}`;
-                    log(`尝试代理: ${proxy.substring(0, 30)}...`);
+                    updateStatus(`测试代理: ${proxy.substring(0, 30)}...`);
                     
-                    const response = await fetch(proxyUrl, {
+                    const testUrl = `${proxy}${encodeURIComponent(FULL_URL + '&$top=1')}`;
+                    const response = await fetch(testUrl, { 
                         method: 'GET',
-                        headers: {
-                            'Accept': 'application/json'
-                        }
+                        headers: { 'Accept': 'application/json' }
                     });
                     
                     if (response.ok) {
                         const text = await response.text();
-                        log(`代理测试成功，响应长度: ${text.length}`);
-                        
                         if (text.includes('<feed') || text.includes('{"value"')) {
-                            log('✅ Azure服务正常！');
-                            updateStatus('✅ Azure连接成功（通过代理）');
+                            currentProxy = proxy;
+                            isConnected = true;
                             
-                            // 保存代理地址供后续使用
-                            window.AZURE_PROXY = proxy;
+                            console.log(`✅ 使用代理: ${proxy}`);
+                            updateStatus('✅ Azure云端已连接');
                             
                             return true;
                         }
                     }
                 } catch (error) {
-                    log(`代理 ${proxy.substring(0, 30)}... 失败: ${error.message}`);
+                    console.log(`代理 ${proxy.substring(0, 30)}... 失败: ${error.message}`);
                 }
             }
             
-            throw new Error('所有代理都失败');
+            // 所有代理都失败
+            isConnected = false;
+            updateStatus('❌ 连接失败');
+            return false;
         }
-
-        // 直接测试按钮
-        async function directTest() {
-            log('=== 直接测试开始 ===');
-            
-            // 在浏览器控制台显示可手动测试的URL
-            const testUrl = `${FULL_URL}&$top=1`;
-            log(`手动测试URL: ${testUrl}`);
-            log('请复制上面的URL到新标签页测试');
-            
-            // 尝试直接打开
-            window.open(testUrl, '_blank');
-            
-            // 尝试简单的fetch
-            try {
-                const response = await fetch(testUrl);
-                log(`直接fetch状态: ${response.status}`);
-            } catch (error) {
-                log(`直接fetch错误: ${error.message}`);
-            }
-        }
-
-        // 加载留言
+        
+        // ============================================
+        // Azure操作函数
+        // ============================================
         async function loadMessages() {
-            try {
-                // 先显示本地
-                const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
-                displayMessages(localMessages.map(m => ({ ...m, source: 'local' })));
-                
-                // 如果代理可用，尝试从Azure加载
-                if (window.AZURE_PROXY) {
-                    await loadAzureMessages();
-                }
-            } catch (error) {
-                log(`加载留言错误: ${error.message}`);
+            if (!isConnected) {
+                showMessage('error', '未连接到Azure云端');
+                return;
             }
-        }
-
-        // 加载Azure留言
-        async function loadAzureMessages() {
+            
+            showLoading(true);
+            
             try {
-                const proxy = window.AZURE_PROXY;
-                const queryUrl = `${proxy}${encodeURIComponent(FULL_URL + '&$filter=PartitionKey eq \'messageBoard\'&$orderby=RowKey desc')}`;
+                const queryUrl = `${currentProxy}${encodeURIComponent(FULL_URL + '&$filter=PartitionKey eq \'messageBoard\'&$orderby=RowKey desc&$top=100')}`;
                 
-                const response = await fetch(queryUrl);
+                const response = await fetch(queryUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
                 const text = await response.text();
+                let messages = [];
                 
-                if (response.ok) {
-                    let azureMessages = [];
-                    
-                    if (text.includes('<feed')) {
-                        // 简单解析XML
-                        const entries = text.split('<entry>');
-                        for (let entry of entries) {
-                            if (entry.includes('name') && entry.includes('message')) {
-                                const nameMatch = entry.match(/<d:name[^>]*>([^<]*)<\/d:name>/);
-                                const messageMatch = entry.match(/<d:message[^>]*>([^<]*)<\/d:message>/);
-                                const timeMatch = entry.match(/<d:timestamp[^>]*>([^<]*)<\/d:timestamp>/);
-                                
-                                if (nameMatch && messageMatch) {
-                                    azureMessages.push({
-                                        name: nameMatch[1],
-                                        message: messageMatch[1],
-                                        timestamp: timeMatch ? timeMatch[1] : new Date().toISOString(),
-                                        source: 'azure'
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (azureMessages.length > 0) {
-                        displayMessages(azureMessages);
-                        log(`从Azure加载了 ${azureMessages.length} 条留言`);
-                    }
+                if (text.includes('<feed')) {
+                    // 解析XML响应
+                    messages = parseXmlMessages(text);
+                } else if (text.includes('{"value"')) {
+                    // 解析JSON响应
+                    const data = JSON.parse(text);
+                    messages = data.value || [];
                 }
+                
+                displayMessages(messages);
+                showMessage('success', `✅ 已加载 ${messages.length} 条云端留言`);
+                
             } catch (error) {
-                log(`加载Azure留言错误: ${error.message}`);
+                console.error('加载留言失败:', error);
+                showMessage('error', `加载失败: ${error.message}`);
+                showError('无法从云端加载留言，请稍后重试。');
+            } finally {
+                showLoading(false);
             }
         }
-
-        // 提交留言
+        
         async function submitMessage() {
+            if (!isConnected) {
+                showMessage('error', '请先连接到Azure云端');
+                return;
+            }
+            
             const name = document.getElementById('name').value.trim();
             const message = document.getElementById('message').value.trim();
             
             if (!message) {
-                alert('请输入留言内容');
+                showMessage('error', '请输入留言内容');
                 return;
             }
             
-            const newMessage = {
+            if (message.length > 500) {
+                showMessage('error', '留言不能超过500字');
+                return;
+            }
+            
+            // 创建Azure表实体
+            const entity = {
+                PartitionKey: 'messageBoard',
+                RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 name: name || '匿名用户',
                 message: message,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                ip: await getClientIP(),
+                userAgent: navigator.userAgent.substring(0, 100)
             };
             
-            // 保存到本地
-            const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
-            localMessages.unshift({ ...newMessage, source: 'local' });
+            showMessage('info', '正在保存到Azure云端...');
             
-            if (localMessages.length > 50) {
-                localMessages.length = 50;
-            }
-            
-            localStorage.setItem('localMessages', JSON.stringify(localMessages));
-            
-            // 尝试保存到Azure（通过代理）
-            if (window.AZURE_PROXY) {
-                try {
-                    const entity = {
-                        PartitionKey: 'messageBoard',
-                        RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        ...newMessage
-                    };
+            try {
+                const response = await fetch(`${currentProxy}${encodeURIComponent(FULL_URL)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(entity)
+                });
+                
+                if (response.ok || response.status === 204) {
+                    // 清空输入框
+                    document.getElementById('name').value = '';
+                    document.getElementById('message').value = '';
                     
-                    const proxy = window.AZURE_PROXY;
-                    const response = await fetch(`${proxy}${encodeURIComponent(FULL_URL)}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(entity)
-                    });
+                    // 重新加载留言
+                    await loadMessages();
                     
-                    if (response.ok) {
-                        log('留言已同时保存到Azure');
-                    }
-                } catch (error) {
-                    log(`保存到Azure失败: ${error.message}`);
+                    showMessage('success', '✅ 留言已成功保存到Azure云端！');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
                 }
+                
+            } catch (error) {
+                console.error('保存失败:', error);
+                showMessage('error', `保存失败: ${error.message}`);
+            }
+        }
+        
+        // ============================================
+        // 解析函数
+        // ============================================
+        function parseXmlMessages(xmlText) {
+            const messages = [];
+            
+            try {
+                // 简单解析XML（字符串处理）
+                const entries = xmlText.split('<entry>');
+                
+                for (let i = 1; i < entries.length; i++) {
+                    const entry = entries[i].split('</entry>')[0];
+                    
+                    // 提取字段
+                    const nameMatch = entry.match(/<d:name[^>]*>([^<]*)<\/d:name>/);
+                    const messageMatch = entry.match(/<d:message[^>]*>([^<]*)<\/d:message>/);
+                    const timeMatch = entry.match(/<d:timestamp[^>]*>([^<]*)<\/d:timestamp>/);
+                    
+                    if (nameMatch && messageMatch) {
+                        messages.push({
+                            name: decodeHtml(nameMatch[1]),
+                            message: decodeHtml(messageMatch[1]),
+                            timestamp: timeMatch ? timeMatch[1] : new Date().toISOString(),
+                            RowKey: entry.match(/<d:RowKey[^>]*>([^<]*)<\/d:RowKey>/) ? decodeHtml(entry.match(/<d:RowKey[^>]*>([^<]*)<\/d:RowKey>/)[1]) : ''
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('XML解析错误:', error);
             }
             
-            // 清空输入框
-            document.getElementById('name').value = '';
-            document.getElementById('message').value = '';
-            
-            // 重新加载
-            loadMessages();
-            
-            alert('留言已发布！');
+            return messages;
         }
-
-        // 显示留言
+        
+        // ============================================
+        // 显示函数
+        // ============================================
         function displayMessages(messages) {
-            const container = document.getElementById('messages');
+            const container = document.getElementById('messages-container');
             
             if (!messages || messages.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">还没有留言</div>';
+                container.innerHTML = `
+                    <div class="loading">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>还没有留言</h3>
+                        <p>成为第一个留言的人吧！</p>
+                    </div>
+                `;
                 return;
             }
             
             container.innerHTML = messages.map(msg => `
                 <div class="message">
-                    <div style="font-weight: bold; color: #0078d4;">
-                        ${escapeHtml(msg.name)} 
-                        <span style="float: right; font-size: 12px; color: #666;">
+                    <div class="msg-header">
+                        <div class="msg-name">
+                            <i class="fas fa-user"></i> ${escapeHtml(msg.name)}
+                        </div>
+                        <div class="msg-time">
                             ${formatTime(msg.timestamp)}
-                        </span>
+                        </div>
                     </div>
-                    <div style="margin: 5px 0;">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
-                    <div style="font-size: 12px; color: #666;">
-                        ${msg.source === 'azure' ? '🌩️ Azure云端' : '💾 本地存储'}
+                    <div style="margin: 10px 0; line-height: 1.6;">
+                        ${escapeHtml(msg.message).replace(/\n/g, '<br>')}
+                    </div>
+                    <div style="font-size: 12px; color: #28a745;">
+                        <i class="fas fa-cloud"></i> Azure云端存储
+                        <span style="float: right; color: #666;">
+                            ${msg.RowKey ? 'ID: ' + msg.RowKey.substring(0, 8) + '...' : ''}
+                        </span>
                     </div>
                 </div>
             `).join('');
         }
-
-        // 清空本地留言
-        function clearLocalMessages() {
-            if (confirm('确定清空所有本地留言吗？')) {
-                localStorage.removeItem('localMessages');
-                loadMessages();
-                log('本地留言已清空');
-                alert('本地留言已清空');
+        
+        function showLoading(show) {
+            const container = document.getElementById('messages-container');
+            if (show) {
+                container.innerHTML = `
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <h3>正在从云端加载留言...</h3>
+                        <p>请稍候</p>
+                    </div>
+                `;
             }
         }
-
-        // 设置事件监听器
+        
+        function showError(message) {
+            const container = document.getElementById('messages-container');
+            container.innerHTML = `
+                <div class="error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>加载失败</h3>
+                    <p>${message}</p>
+                    <button onclick="loadMessages()" style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> 重试
+                    </button>
+                </div>
+            `;
+        }
+        
+        function showMessage(type, text) {
+            const container = document.getElementById('message-container');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            const icon = type === 'error' ? 'fa-exclamation-circle' : type === 'success' ? 'fa-check-circle' : 'fa-info-circle';
+            
+            container.innerHTML = `
+                <div class="${className}">
+                    <i class="fas ${icon}"></i> ${text}
+                </div>
+            `;
+            
+            // 自动隐藏成功消息
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (container.innerHTML.includes('success')) {
+                        container.innerHTML = '';
+                    }
+                }, 3000);
+            }
+        }
+        
+        function updateStatus(text) {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = text;
+            
+            if (text.includes('✅')) {
+                statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${text}`;
+            } else if (text.includes('❌')) {
+                statusEl.innerHTML = `<i class="fas fa-times-circle"></i> ${text}`;
+            } else if (text.includes('正在')) {
+                statusEl.innerHTML = `<i class="fas fa-sync fa-spin"></i> ${text}`;
+            }
+        }
+        
+        // ============================================
+        // 事件监听器
+        // ============================================
         function setupEventListeners() {
             document.getElementById('submit-btn').addEventListener('click', submitMessage);
-            document.getElementById('clear-btn').addEventListener('click', clearLocalMessages);
-            document.getElementById('direct-test-btn').addEventListener('click', directTest);
+            document.getElementById('refresh-btn').addEventListener('click', loadMessages);
+            document.getElementById('reconnect-btn').addEventListener('click', initConnection);
             
-            // Enter提交
+            // Ctrl+Enter提交
             document.getElementById('message').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && e.ctrlKey) {
+                if (e.ctrlKey && e.key === 'Enter') {
                     e.preventDefault();
                     submitMessage();
                 }
             });
-        }
-
-        // 更新状态
-        function updateStatus(text) {
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = text;
             
-            if (text.includes('✅')) {
-                statusEl.className = 'status connected';
-            } else if (text.includes('❌')) {
-                statusEl.className = 'status disconnected';
-            } else {
-                statusEl.className = 'status';
-            }
+            // 每30秒自动刷新
+            setInterval(() => {
+                if (isConnected) {
+                    loadMessages();
+                }
+            }, 30000);
         }
-
-        // 调试日志
-        function log(message) {
-            const debug = document.getElementById('debug');
-            const time = new Date().toLocaleTimeString();
-            debug.innerHTML += `[${time}] ${message}<br>`;
-            debug.scrollTop = debug.scrollHeight;
-            console.log(`[DEBUG] ${message}`);
-        }
-
+        
+        // ============================================
         // 辅助函数
+        // ============================================
         function escapeHtml(text) {
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
-
+        
+        function decodeHtml(text) {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = text;
+            return txt.value;
+        }
+        
         function formatTime(isoString) {
-            if (!isoString) return '';
+            if (!isoString) return '未知时间';
             const date = new Date(isoString);
             const now = new Date();
             const diff = now - date;
@@ -401,15 +463,19 @@
             if (diff < 60000) return '刚刚';
             if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
             if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
             
             return date.toLocaleDateString('zh-CN');
         }
         
-        // 加载本地留言
-        function loadLocalMessages() {
-            const messages = JSON.parse(localStorage.getItem('localMessages') || '[]');
-            displayMessages(messages.map(m => ({ ...m, source: 'local' })));
-            log(`从本地加载了 ${messages.length} 条留言`);
+        async function getClientIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch {
+                return 'unknown';
+            }
         }
     </script>
 </body>
