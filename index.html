@@ -132,6 +132,16 @@
             transform: translateY(-2px);
         }
         
+        #test-btn {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        #test-btn:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        
         .messages-section {
             padding: 30px;
             max-height: 500px;
@@ -269,6 +279,18 @@
             100% { opacity: 1; }
         }
         
+        .debug-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -329,6 +351,9 @@
                 <button id="refresh-btn">
                     <i class="fas fa-sync-alt"></i> 刷新留言
                 </button>
+                <button id="test-btn">
+                    <i class="fas fa-bug"></i> 测试连接
+                </button>
             </div>
             
             <div class="stats">
@@ -341,9 +366,14 @@
                     <div class="stat-label">当前字数</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="storage-mode">本地</div>
+                    <div class="stat-value" id="storage-mode">检测中</div>
                     <div class="stat-label">存储模式</div>
                 </div>
+            </div>
+            
+            <div class="debug-panel" id="debug-panel" style="display: none;">
+                <h4>调试信息：</h4>
+                <div id="debug-output"></div>
             </div>
         </div>
         
@@ -368,19 +398,14 @@
 
     <script>
         // ============================================
-        // 重要：请修改以下三个值为你的Azure配置信息
+        // Azure配置
         // ============================================
         const AZURE_CONFIG = {
-            // 1. 你的存储账户名（在Azure Portal中查看）
             accountName: 'messageboard2025',
-            
-            // 2. 表名（默认messages，小写）
             tableName: 'messages',
-            
-            // 3. 你的SAS令牌（从Azure Portal复制）
+            // 使用你的SAS令牌（确保srt=sco）
             sasToken: '?sv=2024-11-04&ss=t&srt=sco&sp=rwdl&se=2026-02-12T23:59:29Z&st=2025-12-02T15:44:29Z&spr=https&sig=1KAtGlI7tHgxyzXpqMKfn9G7EHBzsszqMxhaMKTfCbw%3D'
         };
-        // ============================================
         
         // 构建完整URL
         const TABLE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}${AZURE_CONFIG.sasToken}`;
@@ -389,67 +414,112 @@
         let allMessages = [];
 
         // 初始化
-        document.addEventListener('DOMContentLoaded', async function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('初始化开始...');
+            console.log('Table URL:', TABLE_URL);
+            
             setupEventListeners();
-            await testAzureConnection();
-            await loadAllMessages();
+            showDebugPanel();
+            
+            // 直接使用本地模式，稍后测试Azure
+            updateStatus('使用本地存储模式', 'disconnected');
+            document.getElementById('storage-mode').textContent = '本地';
+            document.getElementById('storage-info').textContent = '数据存储于浏览器本地 | 不同设备间留言不共享';
+            
+            loadAllMessages();
+            
+            // 异步测试Azure连接
+            setTimeout(() => {
+                testAzureConnection();
+            }, 1000);
         });
 
-        // 测试Azure连接
-async function testAzureConnection() {
-    try {
-        updateStatus('正在连接Azure...', 'disconnected');
-        
-        // 方法1：使用XML格式请求（兼容性更好）
-        const testUrl = `${TABLE_URL}&$top=1`;
-        
-        // 尝试两种Accept头
-        const headers = {
-            'Accept': 'application/json;odata=nometadata',
-            'DataServiceVersion': '3.0',
-            'MaxDataServiceVersion': '3.0'
-        };
-        
-        console.log('测试URL:', testUrl);
-        console.log('请求头:', headers);
-        
-        const response = await fetch(testUrl, { headers });
-        
-        console.log('响应状态:', response.status);
-        console.log('响应头:', [...response.headers.entries()]);
-        
-        if (response.ok || response.status === 200) {
-            isAzureConnected = true;
-            updateStatus('已连接Azure云端', 'connected');
-            document.getElementById('storage-mode').textContent = '云端';
-            document.getElementById('storage-info').textContent = '数据存储于Azure云端 | 支持多人共享 | 跨设备同步';
-            
-            // 测试读取响应内容
-            const text = await response.text();
-            console.log('响应内容:', text.substring(0, 200));
-            
-            return true;
-        } else {
-            const errorText = await response.text();
-            console.error('详细错误:', errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // 测试Azure连接（使用CORS代理绕过限制）
+        async function testAzureConnection() {
+            try {
+                updateStatus('测试Azure连接...', 'disconnected');
+                logDebug('开始测试Azure连接...');
+                
+                // 方法1：使用CORS代理绕过限制
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const targetUrl = `${TABLE_URL}&$top=1`;
+                const testUrl = `${proxyUrl}${targetUrl}`;
+                
+                logDebug(`测试URL: ${targetUrl}`);
+                logDebug(`代理URL: ${testUrl}`);
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json;odata=nometadata',
+                        'DataServiceVersion': '3.0',
+                        'Origin': window.location.origin,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    mode: 'cors'
+                });
+                
+                logDebug(`响应状态: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logDebug(`响应数据: ${JSON.stringify(data)}`);
+                    
+                    isAzureConnected = true;
+                    updateStatus('✅ 已连接Azure云端', 'connected');
+                    document.getElementById('storage-mode').textContent = '云端';
+                    document.getElementById('storage-info').textContent = '数据存储于Azure云端 | 支持多人共享 | 跨设备同步';
+                    
+                    showNotification('Azure连接成功！', 'success');
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.warn('Azure连接失败:', error.message);
+                logDebug(`连接失败: ${error.message}`);
+                
+                isAzureConnected = false;
+                updateStatus('使用本地存储模式', 'disconnected');
+                document.getElementById('storage-mode').textContent = '本地';
+                document.getElementById('storage-info').textContent = '数据存储于浏览器本地 | 不同设备间留言不共享';
+                
+                // 尝试直接连接（不使用代理）
+                tryDirectConnection();
+                return false;
+            }
         }
-    } catch (error) {
-        console.warn('Azure连接失败:', error.message);
-        isAzureConnected = false;
-        updateStatus('使用本地存储模式', 'disconnected');
-        document.getElementById('storage-mode').textContent = '本地';
-        document.getElementById('storage-info').textContent = '数据存储于浏览器本地 | 不同设备间留言不共享';
-        
-        // 提供详细错误信息
-        showNotification(`Azure连接失败: ${error.message}`, 'error');
-        return false;
-    }
-}
+
+        // 尝试直接连接
+        async function tryDirectConnection() {
+            try {
+                logDebug('尝试直接连接...');
+                const testUrl = `${TABLE_URL}&$top=1`;
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json;odata=nometadata',
+                        'DataServiceVersion': '3.0'
+                    }
+                });
+                
+                if (response.ok) {
+                    isAzureConnected = true;
+                    updateStatus('✅ 已连接Azure云端', 'connected');
+                    document.getElementById('storage-mode').textContent = '云端';
+                    document.getElementById('storage-info').textContent = '数据存储于Azure云端 | 支持多人共享 | 跨设备同步';
+                    showNotification('Azure直接连接成功！', 'success');
+                }
+            } catch (error) {
+                logDebug(`直接连接也失败: ${error.message}`);
+            }
+        }
 
         // 加载所有留言
         async function loadAllMessages() {
             showLoading(true);
+            logDebug('开始加载留言...');
             
             try {
                 let azureMessages = [];
@@ -457,13 +527,16 @@ async function testAzureConnection() {
                 
                 // 尝试从Azure加载
                 if (isAzureConnected) {
+                    logDebug('尝试从Azure加载留言...');
                     azureMessages = await loadFromAzure();
+                    logDebug(`从Azure加载了 ${azureMessages.length} 条留言`);
                 }
                 
                 // 从本地加载
                 localMessages = loadFromLocal();
+                logDebug(`从本地加载了 ${localMessages.length} 条留言`);
                 
-                // 合并留言（Azure优先）
+                // 合并留言
                 allMessages = [...azureMessages, ...localMessages];
                 
                 // 按时间排序
@@ -473,34 +546,53 @@ async function testAzureConnection() {
                 displayMessages(allMessages);
                 updateStats();
                 
+                logDebug(`总共显示 ${allMessages.length} 条留言`);
+                
             } catch (error) {
                 console.error('加载留言失败:', error);
+                logDebug(`加载失败: ${error.message}`);
                 showNotification('加载留言失败', 'error');
             } finally {
                 showLoading(false);
             }
         }
 
-        // 从Azure加载留言
+        // 从Azure加载留言（使用代理）
         async function loadFromAzure() {
             try {
                 const queryUrl = `${TABLE_URL}&$filter=PartitionKey eq 'messageBoard'&$orderby=RowKey desc&$top=100`;
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
                 
-                const response = await fetch(queryUrl, {
+                const response = await fetch(`${proxyUrl}${queryUrl}`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json',
-                        'DataServiceVersion': '3.0'
+                        'Accept': 'application/json;odata=nometadata',
+                        'DataServiceVersion': '3.0',
+                        'Origin': window.location.origin
                     }
                 });
                 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    // 尝试直接连接
+                    const directResponse = await fetch(queryUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json;odata=nometadata',
+                            'DataServiceVersion': '3.0'
+                        }
+                    });
+                    
+                    if (!directResponse.ok) throw new Error(`HTTP ${directResponse.status}`);
+                    
+                    const data = await directResponse.json();
+                    return (data.value || []).map(msg => ({
+                        ...msg,
+                        source: 'azure'
+                    }));
+                }
                 
                 const data = await response.json();
-                const messages = data.value || [];
-                
-                // 添加来源标记
-                return messages.map(msg => ({
+                return (data.value || []).map(msg => ({
                     ...msg,
                     source: 'azure'
                 }));
@@ -541,6 +633,7 @@ async function testAzureConnection() {
             }
             
             showNotification('正在发布留言...', 'info');
+            logDebug(`提交留言: ${name} - ${message.substring(0, 50)}...`);
             
             const newMessage = {
                 name: name || '匿名用户',
@@ -550,14 +643,18 @@ async function testAzureConnection() {
             };
             
             let success = false;
+            let usedAzure = false;
             
             // 优先尝试保存到Azure
             if (isAzureConnected) {
+                logDebug('尝试保存到Azure...');
                 success = await saveToAzure(newMessage);
+                usedAzure = success;
             }
             
             // 如果Azure失败或未连接，保存到本地
             if (!success) {
+                logDebug('保存到本地...');
                 success = saveToLocal(newMessage);
             }
             
@@ -570,14 +667,16 @@ async function testAzureConnection() {
                 // 重新加载留言
                 await loadAllMessages();
                 
-                const source = isAzureConnected && success ? '云端' : '本地';
+                const source = usedAzure ? '云端' : '本地';
                 showNotification(`留言已保存到${source}`, 'success');
+                logDebug(`留言保存成功 (${source})`);
             } else {
                 showNotification('留言保存失败', 'error');
+                logDebug('留言保存失败');
             }
         }
 
-        // 保存到Azure
+        // 保存到Azure（使用代理）
         async function saveToAzure(message) {
             try {
                 const entity = {
@@ -586,19 +685,28 @@ async function testAzureConnection() {
                     ...message
                 };
                 
-                const response = await fetch(TABLE_URL, {
+                logDebug(`保存到Azure实体: ${JSON.stringify(entity)}`);
+                
+                // 使用代理
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const response = await fetch(`${proxyUrl}${TABLE_URL}`, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
-                        'Prefer': 'return-no-content'
+                        'Prefer': 'return-no-content',
+                        'Origin': window.location.origin
                     },
                     body: JSON.stringify(entity)
                 });
                 
-                return response.ok || response.status === 204;
+                const success = response.ok || response.status === 204;
+                logDebug(`保存结果: ${success ? '成功' : '失败'} (${response.status})`);
+                return success;
+                
             } catch (error) {
                 console.error('保存到Azure失败:', error);
+                logDebug(`保存异常: ${error.message}`);
                 return false;
             }
         }
@@ -618,9 +726,11 @@ async function testAzureConnection() {
                 }
                 
                 localStorage.setItem('localMessages', JSON.stringify(messages));
+                logDebug(`保存到本地成功，现有 ${messages.length} 条留言`);
                 return true;
             } catch (error) {
                 console.error('保存到本地失败:', error);
+                logDebug(`本地保存异常: ${error.message}`);
                 return false;
             }
         }
@@ -630,6 +740,7 @@ async function testAzureConnection() {
             if (!confirm('确定清空所有本地留言吗？云端留言不会被删除。')) return;
             
             localStorage.removeItem('localMessages');
+            logDebug('已清空本地留言');
             loadAllMessages();
             showNotification('本地留言已清空', 'success');
         }
@@ -671,6 +782,8 @@ async function testAzureConnection() {
                     </div>
                 </div>
             `).join('');
+            
+            logDebug(`显示了 ${messages.length} 条留言`);
         }
 
         // 更新统计信息
@@ -680,6 +793,7 @@ async function testAzureConnection() {
             const totalCount = allMessages.length;
             
             document.getElementById('message-count').textContent = totalCount;
+            logDebug(`统计: Azure=${azureCount}, 本地=${localCount}, 总计=${totalCount}`);
         }
 
         // 设置事件监听器
@@ -692,6 +806,9 @@ async function testAzureConnection() {
             
             // 刷新按钮
             document.getElementById('refresh-btn').addEventListener('click', loadAllMessages);
+            
+            // 测试按钮
+            document.getElementById('test-btn').addEventListener('click', testAzureConnection);
             
             // 实时字数统计
             document.getElementById('message').addEventListener('input', function() {
@@ -798,6 +915,20 @@ async function testAzureConnection() {
                 notification.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => notification.remove(), 300);
             }, 3000);
+        }
+
+        // 调试功能
+        function showDebugPanel() {
+            const debugPanel = document.getElementById('debug-panel');
+            debugPanel.style.display = 'block';
+        }
+
+        function logDebug(message) {
+            const debugOutput = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+            console.log(`[DEBUG] ${message}`);
         }
 
         // 辅助函数：转义HTML
