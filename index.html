@@ -5,124 +5,133 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Azure Table留言板</title>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #0078d4; text-align: center; }
-        .status { background: #e3f2fd; padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center; }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        textarea { min-height: 100px; resize: vertical; }
-        .buttons { display: flex; gap: 10px; margin: 20px 0; }
-        button { flex: 1; padding: 15px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
-        .btn-submit { background: #0078d4; color: white; }
-        .btn-refresh { background: #6c757d; color: white; }
-        .message { background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #28a745; }
-        .msg-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .msg-name { font-weight: bold; color: #0078d4; }
-        .msg-time { color: #666; font-size: 14px; }
-        .loading { text-align: center; padding: 40px; color: #666; }
-        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        .error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+        .message { background: #f5f5f5; padding: 15px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📝 Azure Table留言板</h1>
-        
-        <div class="status" id="status">正在初始化...</div>
-        
-        <div id="message"></div>
-        
-        <input type="text" id="name" placeholder="你的名字（可选）" maxlength="20">
-        <textarea id="content" placeholder="输入留言内容..." maxlength="500"></textarea>
-        
-        <div class="buttons">
-            <button class="btn-submit" onclick="submitMessage()">发布留言</button>
-            <button class="btn-refresh" onclick="loadMessages()">刷新留言</button>
-        </div>
-        
-        <div id="messages">
-            <div class="loading">
-                <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
-                正在从Azure加载留言...
-            </div>
-        </div>
-    </div>
+    <h1>Azure Table留言板</h1>
+    <div id="status">状态: 准备中...</div>
+    
+    <input type="text" id="name" placeholder="名字">
+    <textarea id="content" placeholder="留言内容" rows="3"></textarea>
+    
+    <button onclick="loadMessages()">加载留言</button>
+    <button onclick="submitMessage()">发布留言</button>
+    
+    <div id="messages"></div>
 
     <script>
         // ============================================
-        // 配置 - 使用你测试成功的SAS令牌
+        // 配置
         // ============================================
         const CONFIG = {
             account: 'messageboard2025',
             table: 'messages',
-            // 你测试成功的SAS令牌
             sas: '?sv=2024-11-04&ss=t&srt=co&sp=rwdlacu&se=2026-02-12T01:08:00Z&st=2025-12-04T16:53:00Z&spr=https&sig=O6rDzpyGQV1o9nh4OfFpZZVczqeihnFwYxGYnDd4Hp4%3D'
         };
         
-        //const TABLE_URL = `https://${CONFIG.account}.table.core.windows.net/${CONFIG.table}${CONFIG.sas}`;
-        const TABLE_URL = `https://messageboard2025.table.core.windows.net/messages?sv=2024-11-04&ss=t&srt=co&sp=rwdl&se=2026-02-12T23:59:29Z&st=2025-12-02T15:44:29Z&spr=https&sig=1KAtGlI7tHgxyzXpqMKfn9G7EHBzsszqMxhaMKTfCbw%3D`;
-        // ============================================
-        // 初始化
-        // ============================================
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Azure Table留言板启动');
-            console.log('Table URL:', TABLE_URL);
-            
-            // 设置键盘快捷键
-            document.getElementById('content').addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') {
-                    e.preventDefault();
-                    submitMessage();
-                }
-            });
-            
-            // 加载留言
-            loadMessages();
-        });
+        const BASE_URL = `https://${CONFIG.account}.table.core.windows.net/${CONFIG.table}`;
+        const FULL_URL = `${BASE_URL}${CONFIG.sas}`;
         
         // ============================================
         // 核心函数
         // ============================================
         async function loadMessages() {
             try {
-                showLoading();
-                updateStatus('正在从Azure加载留言...');
+                document.getElementById('status').textContent = '状态: 加载中...';
                 
-                // 查询数据
-                const queryUrl = `${TABLE_URL}&$filter=PartitionKey eq 'messages'&$orderby=RowKey desc`;
+                // 查询URL - 使用正确的API版本头
+                const queryUrl = `${FULL_URL}&$filter=PartitionKey eq 'messages'`;
                 
                 console.log('查询URL:', queryUrl);
                 
-                const response = await fetch(queryUrl);
+                const response = await fetch(queryUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json;odata=nometadata',
+                        'DataServiceVersion': '3.0;NetFx',
+                        'MaxDataServiceVersion': '3.0;NetFx'
+                    }
+                });
                 
-                console.log('响应状态:', response.status);
+                console.log('响应状态:', response.status, response.statusText);
                 
                 if (response.ok) {
-                    const xmlText = await response.text();
-                    console.log('XML响应长度:', xmlText.length);
+                    const data = await response.json();
+                    console.log('响应数据:', data);
                     
-                    // 解析XML
-                    const messages = parseXmlMessages(xmlText);
-                    console.log('解析出消息:', messages.length);
-                    
-                    // 显示消息
-                    if (messages.length > 0) {
-                        displayMessages(messages);
-                        updateStatus(`✅ 已加载 ${messages.length} 条留言`);
-                        showMessage(`成功加载 ${messages.length} 条留言`, 'success');
+                    if (data.value && data.value.length > 0) {
+                        displayMessages(data.value);
+                        document.getElementById('status').textContent = `状态: 已加载 ${data.value.length} 条留言`;
                     } else {
-                        showNoMessages();
-                        updateStatus('✅ 连接正常，但没有留言');
+                        document.getElementById('messages').innerHTML = '<p>还没有留言</p>';
+                        document.getElementById('status').textContent = '状态: 没有留言';
                     }
                 } else {
-                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                    const errorText = await response.text();
+                    console.error('错误详情:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
                 
             } catch (error) {
                 console.error('加载失败:', error);
-                updateStatus('❌ 加载失败');
-                showMessage(`加载失败: ${error.message}`, 'error');
-                showError();
+                document.getElementById('status').textContent = `状态: 错误 - ${error.message}`;
+                
+                // 尝试备用方法
+                tryAlternativeLoad();
+            }
+        }
+        
+        // 备用加载方法
+        async function tryAlternativeLoad() {
+            try {
+                console.log('尝试备用加载方法...');
+                
+                // 方法1: 尝试XML格式
+                const response = await fetch(`${FULL_URL}&$filter=PartitionKey eq 'messages'`, {
+                    headers: {
+                        'Accept': 'application/atom+xml',
+                        'DataServiceVersion': '1.0;NetFx'
+                    }
+                });
+                
+                if (response.ok) {
+                    const xmlText = await response.text();
+                    console.log('XML响应:', xmlText.substring(0, 500));
+                    
+                    // 解析XML
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                    const entries = xmlDoc.getElementsByTagName('entry');
+                    
+                    const messages = [];
+                    for (let entry of entries) {
+                        const props = entry.getElementsByTagName('properties')[0];
+                        if (props) {
+                            const name = props.getElementsByTagName('d:name')[0]?.textContent;
+                            const message = props.getElementsByTagName('d:message')[0]?.textContent;
+                            const timestamp = props.getElementsByTagName('d:timestamp')[0]?.textContent;
+                            
+                            if (name && message) {
+                                messages.push({
+                                    name: name,
+                                    message: message,
+                                    timestamp: timestamp
+                                });
+                            }
+                        }
+                    }
+                    
+                    if (messages.length > 0) {
+                        displayMessages(messages);
+                        document.getElementById('status').textContent = `状态: 已加载 ${messages.length} 条留言(XML)`;
+                    }
+                }
+            } catch (error) {
+                console.error('备用方法也失败:', error);
             }
         }
         
@@ -131,20 +140,14 @@
             const content = document.getElementById('content').value.trim();
             
             if (!content) {
-                showMessage('请输入留言内容', 'error');
-                return;
-            }
-            
-            if (content.length > 500) {
-                showMessage('留言不能超过500字', 'error');
+                alert('请输入留言内容');
                 return;
             }
             
             try {
-                updateStatus('正在保存到Azure Table...');
-                showMessage('正在保存...', 'info');
+                document.getElementById('status').textContent = '状态: 保存中...';
                 
-                // 创建实体
+                // 创建实体 - 符合Azure Table格式
                 const entity = {
                     PartitionKey: 'messages',
                     RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -155,17 +158,20 @@
                 
                 console.log('提交实体:', entity);
                 
-                const response = await fetch(TABLE_URL, {
+                // 必须包含正确的请求头
+                const response = await fetch(FULL_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
+                        'Accept': 'application/json;odata=nometadata',
+                        'DataServiceVersion': '3.0;NetFx',
+                        'MaxDataServiceVersion': '3.0;NetFx',
                         'Prefer': 'return-no-content'
                     },
                     body: JSON.stringify(entity)
                 });
                 
-                console.log('保存响应:', response.status);
+                console.log('保存响应:', response.status, response.statusText);
                 
                 if (response.ok || response.status === 204) {
                     // 清空输入框
@@ -175,105 +181,112 @@
                     // 重新加载
                     await loadMessages();
                     
-                    showMessage('✅ 留言已成功保存到Azure Table！', 'success');
+                    document.getElementById('status').textContent = '状态: 留言已保存！';
+                    alert('留言已成功保存到Azure Table！');
                 } else {
                     const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    console.error('保存错误详情:', errorText);
+                    
+                    // 尝试备用保存方法
+                    await tryAlternativeSubmit(entity, errorText);
                 }
                 
             } catch (error) {
                 console.error('保存失败:', error);
-                updateStatus('❌ 保存失败');
-                showMessage(`保存失败: ${error.message}`, 'error');
+                document.getElementById('status').textContent = `状态: 保存失败 - ${error.message}`;
+                alert(`保存失败: ${error.message}`);
             }
         }
         
-        // ============================================
-        // XML解析函数
-        // ============================================
-        function parseXmlMessages(xmlText) {
-            const messages = [];
-            
+        // 备用保存方法
+        async function tryAlternativeSubmit(entity, originalError) {
             try {
-                // 使用DOMParser解析XML
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                console.log('尝试备用保存方法...');
                 
-                // 获取所有entry元素
-                const entries = xmlDoc.getElementsByTagName('entry');
+                // 方法1: 尝试不同的Content-Type
+                const response1 = await fetch(FULL_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json;odata=nometadata',
+                        'Accept': 'application/json;odata=nometadata'
+                    },
+                    body: JSON.stringify(entity)
+                });
                 
-                console.log('找到entry数量:', entries.length);
-                
-                for (let entry of entries) {
-                    try {
-                        // 获取properties元素
-                        const properties = entry.getElementsByTagName('properties')[0];
-                        if (!properties) continue;
-                        
-                        // 提取字段
-                        const partitionKey = getXmlValue(properties, 'PartitionKey');
-                        const rowKey = getXmlValue(properties, 'RowKey');
-                        const name = getXmlValue(properties, 'name');
-                        const message = getXmlValue(properties, 'message');
-                        const timestamp = getXmlValue(properties, 'timestamp');
-                        
-                        // 只添加有name和message的条目
-                        if (name !== undefined && message !== undefined) {
-                            messages.push({
-                                PartitionKey: partitionKey,
-                                RowKey: rowKey,
-                                name: name,
-                                message: message,
-                                timestamp: timestamp || new Date().toISOString()
-                            });
-                        }
-                    } catch (e) {
-                        console.warn('解析单个entry失败:', e);
-                    }
+                if (response1.ok) {
+                    console.log('备用方法1成功');
+                    return;
                 }
+                
+                // 方法2: 尝试直接XML格式
+                const xmlBody = `
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<entry xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns="http://www.w3.org/2005/Atom">
+  <title />
+  <updated>${new Date().toISOString()}</updated>
+  <author>
+    <name />
+  </author>
+  <id />
+  <content type="application/xml">
+    <m:properties>
+      <d:PartitionKey>${entity.PartitionKey}</d:PartitionKey>
+      <d:RowKey>${entity.RowKey}</d:RowKey>
+      <d:name>${entity.name}</d:name>
+      <d:message>${entity.message}</d:message>
+      <d:timestamp>${entity.timestamp}</d:timestamp>
+    </m:properties>
+  </content>
+</entry>`;
+                
+                const response2 = await fetch(FULL_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/atom+xml',
+                        'Accept': 'application/atom+xml'
+                    },
+                    body: xmlBody
+                });
+                
+                console.log('XML保存响应:', response2.status);
+                
             } catch (error) {
-                console.error('XML解析失败:', error);
+                console.error('备用保存也失败:', error);
                 
-                // 备选方案：使用字符串解析
-                return parseXmlSimple(xmlText);
+                // 显示详细错误信息
+                showDetailedError(entity, originalError, error.message);
             }
-            
-            return messages;
         }
         
-        function getXmlValue(parent, tagName) {
-            const elements = parent.getElementsByTagName(`d:${tagName}`);
-            return elements.length > 0 ? elements[0].textContent : undefined;
-        }
-        
-        // 简单字符串解析（备选）
-        function parseXmlSimple(xmlText) {
-            const messages = [];
-            const entries = xmlText.split('<entry');
+        // 显示详细错误
+        function showDetailedError(entity, originalError, altError) {
+            const errorMsg = `
+保存失败！请检查：
+
+原始错误: ${originalError}
+备用错误: ${altError}
+
+实体数据:
+${JSON.stringify(entity, null, 2)}
+
+请求URL:
+${FULL_URL}
+
+可能的问题:
+1. SAS令牌权限不足
+2. 表名不正确
+3. PartitionKey格式错误
+4. 网络连接问题
+
+请手动测试URL:
+${FULL_URL}&$top=1
+`;
             
-            for (let i = 1; i < entries.length; i++) {
-                const entry = entries[i];
-                
-                // 提取name
-                const nameMatch = entry.match(/<d:name[^>]*>([^<]*)<\/d:name>/);
-                // 提取message
-                const messageMatch = entry.match(/<d:message[^>]*>([^<]*)<\/d:message>/);
-                // 提取timestamp
-                const timestampMatch = entry.match(/<d:timestamp[^>]*>([^<]*)<\/d:timestamp>/);
-                // 提取RowKey
-                const rowKeyMatch = entry.match(/<d:RowKey[^>]*>([^<]*)<\/d:RowKey>/);
-                
-                if (nameMatch && messageMatch) {
-                    messages.push({
-                        name: decodeHtml(nameMatch[1]),
-                        message: decodeHtml(messageMatch[1]),
-                        timestamp: timestampMatch ? timestampMatch[1] : new Date().toISOString(),
-                        RowKey: rowKeyMatch ? decodeHtml(rowKeyMatch[1]) : ''
-                    });
-                }
-            }
+            alert(errorMsg);
             
-            return messages;
+            // 复制实体到剪贴板方便调试
+            navigator.clipboard.writeText(JSON.stringify(entity, null, 2))
+                .then(() => console.log('实体已复制到剪贴板'));
         }
         
         // ============================================
@@ -282,78 +295,25 @@
         function displayMessages(messages) {
             const container = document.getElementById('messages');
             
-            // 按时间排序（新的在前）
-            messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<p>还没有留言</p>';
+                return;
+            }
+            
+            // 按时间排序
+            messages.sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp) : new Date(0);
+                const timeB = b.timestamp ? new Date(b.timestamp) : new Date(0);
+                return timeB - timeA;
+            });
             
             container.innerHTML = messages.map(msg => `
                 <div class="message">
-                    <div class="msg-header">
-                        <div class="msg-name">${escapeHtml(msg.name)}</div>
-                        <div class="msg-time">${formatTime(msg.timestamp)}</div>
-                    </div>
-                    <div style="margin: 10px 0; line-height: 1.6;">
-                        ${escapeHtml(msg.message).replace(/\n/g, '<br>')}
-                    </div>
-                    <div style="font-size: 12px; color: #666;">
-                        ID: ${msg.RowKey.substring(0, 8)}... | Azure Table
-                    </div>
+                    <div><strong>${escapeHtml(msg.name)}</strong> 
+                    <small>${msg.timestamp ? formatTime(msg.timestamp) : ''}</small></div>
+                    <div>${escapeHtml(msg.message)}</div>
                 </div>
             `).join('');
-        }
-        
-        function showLoading() {
-            const container = document.getElementById('messages');
-            container.innerHTML = `
-                <div class="loading">
-                    <div style="font-size: 48px; margin-bottom: 20px; animation: spin 1s linear infinite;">⏳</div>
-                    正在从Azure Table加载留言...
-                </div>
-            `;
-        }
-        
-        function showNoMessages() {
-            const container = document.getElementById('messages');
-            container.innerHTML = `
-                <div class="loading">
-                    <div style="font-size: 48px; margin-bottom: 20px;">💬</div>
-                    <h3>还没有留言</h3>
-                    <p>成为第一个留言的人吧！</p>
-                </div>
-            `;
-        }
-        
-        function showError() {
-            const container = document.getElementById('messages');
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #dc3545;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                    <h3>加载失败</h3>
-                    <p>无法从Azure Table加载留言</p>
-                    <button onclick="loadMessages()" style="margin-top: 20px; padding: 10px 20px; background: #0078d4; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                        重试
-                    </button>
-                </div>
-            `;
-        }
-        
-        function showMessage(text, type) {
-            const container = document.getElementById('message');
-            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'status';
-            
-            container.innerHTML = `<div class="${className}">${text}</div>`;
-            
-            // 3秒后自动清除
-            if (type !== 'error') {
-                setTimeout(() => {
-                    if (container.innerHTML.includes(text)) {
-                        container.innerHTML = '';
-                    }
-                }, 3000);
-            }
-        }
-        
-        function updateStatus(text) {
-            document.getElementById('status').textContent = text;
         }
         
         // ============================================
@@ -366,37 +326,33 @@
             return div.innerHTML;
         }
         
-        function decodeHtml(text) {
-            const txt = document.createElement('textarea');
-            txt.innerHTML = text;
-            return txt.value;
-        }
-        
         function formatTime(isoString) {
-            if (!isoString) return '';
-            const date = new Date(isoString);
-            const now = new Date();
-            const diff = now - date;
-            
-            if (diff < 60000) return '刚刚';
-            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
-            
-            return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleString('zh-CN');
+            } catch {
+                return isoString;
+            }
         }
         
-        // 添加CSS动画
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
+        // ============================================
+        // 初始化
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Azure Table留言板启动');
+            console.log('CORS已配置，尝试直接连接...');
+            
+            // 设置快捷键
+            document.getElementById('content').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            });
+            
+            // 初始加载
+            loadMessages();
+        });
     </script>
 </body>
 </html>
