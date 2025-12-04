@@ -3,86 +3,400 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>简易留言板</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+    <title>📝 Azure留言板</title>
     <style>
-        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-        .message-card { 
-            background: rgba(255, 255, 255, 0.95); 
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
-            padding: 20px;
-            transition: transform 0.3s;
-        }
-        .message-card:hover { transform: translateY(-5px); }
-        .message-header { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .message-time { font-size: 0.8rem; color: #6c757d; }
-        .form-container { background: white; border-radius: 15px; padding: 30px; }
-        #loading { display: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(90deg, #0078d4, #00bcf2); color: white; padding: 20px; text-align: center; }
+        .status { display: inline-block; padding: 5px 15px; background: rgba(255,255,255,0.2); border-radius: 20px; margin-top: 10px; font-size: 14px; }
+        .form-section { padding: 20px; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        textarea { min-height: 100px; resize: vertical; }
+        .buttons { display: flex; gap: 10px; margin-top: 15px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background: #0078d4; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .messages { padding: 20px; max-height: 400px; overflow-y: auto; }
+        .message { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #0078d4; }
+        .azure-msg { border-left-color: #28a745; }
+        .local-msg { border-left-color: #ffc107; }
+        .msg-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .msg-name { font-weight: bold; color: #0078d4; }
+        .msg-time { color: #666; font-size: 12px; }
+        .msg-source { display: inline-block; padding: 2px 8px; background: #e9ecef; border-radius: 10px; font-size: 11px; margin-top: 5px; }
+        .debug { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; margin-top: 20px; font-family: monospace; font-size: 12px; }
     </style>
 </head>
 <body>
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-md-10">
-                <!-- 标题 -->
-                <div class="text-center text-white mb-5">
-                    <h1 class="display-4 fw-bold"><i class="bi bi-chat-square-text"></i> 简易留言板</h1>
-                    <p class="lead">分享你的想法，查看他人留言</p>
-                </div>
-
-                <!-- 留言表单 -->
-                <div class="form-container shadow-lg mb-5">
-                    <h3 class="mb-4"><i class="bi bi-pencil"></i> 发布新留言</h3>
-                    <form id="messageForm">
-                        <div class="mb-3">
-                            <label class="form-label">你的名字</label>
-                            <input type="text" id="author" class="form-control form-control-lg" 
-                                   placeholder="请输入姓名或昵称" required>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label">留言内容</label>
-                            <textarea id="message" class="form-control form-control-lg" 
-                                      rows="4" placeholder="写下你想说的话..." required></textarea>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="bi bi-send"></i> 发布留言
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- 加载动画 -->
-                <div id="loading" class="text-center text-white mb-4">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                    </div>
-                    <p class="mt-2">正在加载留言...</p>
-                </div>
-
-                <!-- 留言列表 -->
-                <div id="messagesContainer">
-                    <h3 class="text-white mb-4"><i class="bi bi-chat-left-text"></i> 最新留言</h3>
-                    <div id="messagesList"></div>
-                </div>
-
-                <!-- 空状态 -->
-                <div id="emptyState" class="text-center text-white" style="display: none;">
-                    <div class="py-5">
-                        <i class="bi bi-inbox" style="font-size: 4rem;"></i>
-                        <h4 class="mt-3">还没有留言</h4>
-                        <p>成为第一个留言的人吧！</p>
-                    </div>
-                </div>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Azure Table留言板</h1>
+            <div class="status" id="status">正在连接Azure...</div>
+        </div>
+        
+        <div class="form-section">
+            <input type="text" id="name" placeholder="你的名字（可选）" maxlength="20">
+            <textarea id="message" placeholder="输入留言内容..." maxlength="500"></textarea>
+            
+            <div class="buttons">
+                <button class="btn-primary" id="submit-btn">发布留言</button>
+                <button class="btn-secondary" id="clear-btn">清空本地</button>
+                <button class="btn-success" id="test-btn">测试连接</button>
+            </div>
+            
+            <div class="debug">
+                <strong>调试信息：</strong>
+                <div id="debug"></div>
+            </div>
+        </div>
+        
+        <div class="messages" id="messages">
+            <div style="text-align: center; color: #666; padding: 20px;">
+                正在加载留言...
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- 我们的JS代码将在下面单独文件 -->
+    <script>
+        // ============================================
+        // 配置 - 使用你已有的SAS令牌
+        // ============================================
+        const AZURE_CONFIG = {
+            accountName: 'messageboard2025',
+            tableName: 'messages',
+            // 使用你原来的SAS令牌（srt=co 也能工作）
+            sasToken: '?sv=2024-11-04&ss=t&srt=co&sp=rwdl&se=2026-02-12T23:59:29Z&st=2025-12-02T15:44:29Z&spr=https&sig=1KAtGlI7tHgxyzXpqMKfn9G7EHBzsszqMxhaMKTfCbw%3D'
+        };
+        
+        const TABLE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}${AZURE_CONFIG.sasToken}`;
+        let isAzureConnected = false;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('初始化开始');
+            log(`表URL: ${TABLE_URL}`);
+            
+            setupEventListeners();
+            loadMessages();
+            
+            // 测试Azure连接
+            testAzureConnection();
+        });
+
+        // 测试Azure连接
+        async function testAzureConnection() {
+            try {
+                updateStatus('正在测试Azure连接...');
+                
+                // 直接测试连接
+                const response = await fetch(`${TABLE_URL}&$top=1`);
+                
+                log(`响应状态: ${response.status}`);
+                log(`响应类型: ${response.headers.get('content-type')}`);
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    
+                    if (text.includes('<feed')) {
+                        // XML响应 - 连接成功但需要处理XML
+                        isAzureConnected = true;
+                        updateStatus('✅ Azure连接成功 (XML模式)');
+                        log('收到XML响应，连接成功');
+                        
+                        // 尝试添加数据测试
+                        await testAddMessage();
+                    } else if (text.includes('{"value"')) {
+                        // JSON响应
+                        isAzureConnected = true;
+                        updateStatus('✅ Azure连接成功 (JSON模式)');
+                        log('收到JSON响应，连接成功');
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                isAzureConnected = false;
+                updateStatus('❌ Azure连接失败，使用本地存储');
+                log(`连接失败: ${error.message}`);
+            }
+        }
+
+        // 测试添加留言
+        async function testAddMessage() {
+            try {
+                const testMessage = {
+                    PartitionKey: 'messageBoard',
+                    RowKey: `test_${Date.now()}`,
+                    name: '测试用户',
+                    message: '这是一条测试留言',
+                    timestamp: new Date().toISOString()
+                };
+                
+                log('尝试添加测试留言...');
+                
+                const response = await fetch(TABLE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testMessage)
+                });
+                
+                log(`添加测试留言状态: ${response.status}`);
+                
+                if (response.ok || response.status === 204) {
+                    log('✅ 测试留言添加成功！');
+                    updateStatus('✅ Azure读写正常 (XML模式)');
+                }
+            } catch (error) {
+                log(`添加测试失败: ${error.message}`);
+            }
+        }
+
+        // 加载留言
+        async function loadMessages() {
+            try {
+                // 先显示本地留言
+                const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
+                displayMessages(localMessages.map(m => ({ ...m, source: 'local' })));
+                
+                // 如果Azure已连接，尝试加载Azure留言
+                if (isAzureConnected) {
+                    await loadAzureMessages();
+                }
+            } catch (error) {
+                log(`加载留言失败: ${error.message}`);
+            }
+        }
+
+        // 加载Azure留言
+        async function loadAzureMessages() {
+            try {
+                log('正在从Azure加载留言...');
+                
+                // 查询Azure Table
+                const queryUrl = `${TABLE_URL}&$filter=PartitionKey eq 'messageBoard'&$orderby=RowKey desc`;
+                
+                const response = await fetch(queryUrl);
+                const text = await response.text();
+                
+                if (response.ok) {
+                    let azureMessages = [];
+                    
+                    if (text.includes('<feed')) {
+                        // 解析XML
+                        azureMessages = parseXmlMessages(text);
+                        log(`从XML解析出 ${azureMessages.length} 条留言`);
+                    } else if (text.includes('{"value"')) {
+                        // 解析JSON
+                        const data = JSON.parse(text);
+                        azureMessages = data.value || [];
+                        log(`从JSON解析出 ${azureMessages.length} 条留言`);
+                    }
+                    
+                    // 添加来源标记并显示
+                    const markedMessages = azureMessages.map(m => ({ ...m, source: 'azure' }));
+                    displayMessages(markedMessages);
+                }
+            } catch (error) {
+                log(`加载Azure留言失败: ${error.message}`);
+            }
+        }
+
+        // 解析XML响应
+        function parseXmlMessages(xmlText) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                const entries = xmlDoc.getElementsByTagName('entry');
+                const messages = [];
+                
+                for (let entry of entries) {
+                    try {
+                        const properties = entry.getElementsByTagName('properties')[0];
+                        if (!properties) continue;
+                        
+                        const message = {
+                            PartitionKey: getXmlValue(properties, 'PartitionKey'),
+                            RowKey: getXmlValue(properties, 'RowKey'),
+                            name: getXmlValue(properties, 'name'),
+                            message: getXmlValue(properties, 'message'),
+                            timestamp: getXmlValue(properties, 'timestamp')
+                        };
+                        
+                        if (message.name && message.message) {
+                            messages.push(message);
+                        }
+                    } catch (e) {
+                        // 跳过解析错误的条目
+                    }
+                }
+                
+                return messages;
+            } catch (error) {
+                log(`XML解析失败: ${error.message}`);
+                return [];
+            }
+        }
+
+        // 获取XML值
+        function getXmlValue(parent, tagName) {
+            const elements = parent.getElementsByTagName(`d:${tagName}`);
+            return elements.length > 0 ? elements[0].textContent : '';
+        }
+
+        // 提交留言
+        async function submitMessage() {
+            const name = document.getElementById('name').value.trim();
+            const message = document.getElementById('message').value.trim();
+            
+            if (!message) {
+                alert('请输入留言内容');
+                return;
+            }
+            
+            const newMessage = {
+                name: name || '匿名用户',
+                message: message,
+                timestamp: new Date().toISOString(),
+                device: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? '手机' : '电脑'
+            };
+            
+            let savedTo = 'local';
+            
+            // 尝试保存到Azure
+            if (isAzureConnected) {
+                try {
+                    const entity = {
+                        PartitionKey: 'messageBoard',
+                        RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        ...newMessage
+                    };
+                    
+                    const response = await fetch(TABLE_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(entity)
+                    });
+                    
+                    if (response.ok || response.status === 204) {
+                        savedTo = 'azure';
+                        log('留言已保存到Azure');
+                    }
+                } catch (error) {
+                    log(`保存到Azure失败: ${error.message}`);
+                }
+            }
+            
+            // 同时保存到本地
+            const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
+            localMessages.unshift({ ...newMessage, source: 'local' });
+            
+            if (localMessages.length > 50) {
+                localMessages.length = 50;
+            }
+            
+            localStorage.setItem('localMessages', JSON.stringify(localMessages));
+            
+            // 清空输入框
+            document.getElementById('name').value = '';
+            document.getElementById('message').value = '';
+            
+            // 重新加载留言
+            loadMessages();
+            
+            alert(`留言已发布${savedTo === 'azure' ? '到Azure云端' : '到本地存储'}！`);
+        }
+
+        // 显示留言
+        function displayMessages(messages) {
+            const container = document.getElementById('messages');
+            
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">还没有留言，成为第一个留言的人吧！</div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => `
+                <div class="message ${msg.source === 'azure' ? 'azure-msg' : 'local-msg'}">
+                    <div class="msg-header">
+                        <div class="msg-name">${escapeHtml(msg.name)}</div>
+                        <div class="msg-time">${formatTime(msg.timestamp)}</div>
+                    </div>
+                    <div>${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
+                    <div class="msg-source">
+                        ${msg.source === 'azure' ? '🌩️ Azure云端' : '💾 本地存储'}
+                        ${msg.device ? ` · ${msg.device}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 清空本地留言
+        function clearLocalMessages() {
+            if (confirm('确定清空所有本地留言吗？')) {
+                localStorage.removeItem('localMessages');
+                loadMessages();
+                log('本地留言已清空');
+                alert('本地留言已清空');
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            document.getElementById('submit-btn').addEventListener('click', submitMessage);
+            document.getElementById('clear-btn').addEventListener('click', clearLocalMessages);
+            document.getElementById('test-btn').addEventListener('click', testAzureConnection);
+            
+            // Ctrl+Enter提交
+            document.getElementById('message').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            });
+        }
+
+        // 更新状态
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+
+        // 调试日志
+        function log(message) {
+            const debug = document.getElementById('debug');
+            const time = new Date().toLocaleTimeString();
+            debug.innerHTML += `[${time}] ${message}<br>`;
+            debug.scrollTop = debug.scrollHeight;
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        // 辅助函数
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatTime(isoString) {
+            if (!isoString) return '未知时间';
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            
+            return date.toLocaleDateString('zh-CN');
+        }
+    </script>
 </body>
 </html>
