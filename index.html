@@ -5,180 +5,209 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📝 Azure留言板</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #f5f5f5; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
-        .header { background: linear-gradient(90deg, #0078d4, #00bcf2); color: white; padding: 20px; text-align: center; }
-        .status { display: inline-block; padding: 5px 15px; background: rgba(255,255,255,0.2); border-radius: 20px; margin-top: 10px; font-size: 14px; }
-        .form-section { padding: 20px; }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
-        textarea { min-height: 100px; resize: vertical; }
-        .buttons { display: flex; gap: 10px; margin-top: 15px; }
-        button { flex: 1; padding: 12px; border: none; border-radius: 5px; cursor: pointer; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0078d4; margin-bottom: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; }
+        textarea { min-height: 100px; }
+        .buttons { display: flex; gap: 10px; margin: 10px 0; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 5px; cursor: pointer; }
         .btn-primary { background: #0078d4; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-success { background: #28a745; color: white; }
-        .messages { padding: 20px; max-height: 400px; overflow-y: auto; }
+        .messages { margin-top: 20px; }
         .message { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #0078d4; }
-        .azure-msg { border-left-color: #28a745; }
-        .local-msg { border-left-color: #ffc107; }
-        .msg-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .msg-name { font-weight: bold; color: #0078d4; }
-        .msg-time { color: #666; font-size: 12px; }
-        .msg-source { display: inline-block; padding: 2px 8px; background: #e9ecef; border-radius: 10px; font-size: 11px; margin-top: 5px; }
-        .debug { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; margin-top: 20px; font-family: monospace; font-size: 12px; }
+        .debug { background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>📝 Azure Table留言板</h1>
-            <div class="status" id="status">正在连接Azure...</div>
+        <h1>📝 Azure留言板</h1>
+        
+        <div id="status" class="status disconnected">
+            正在初始化...
         </div>
         
-        <div class="form-section">
-            <input type="text" id="name" placeholder="你的名字（可选）" maxlength="20">
-            <textarea id="message" placeholder="输入留言内容..." maxlength="500"></textarea>
+        <div>
+            <input type="text" id="name" placeholder="你的名字（可选）">
+            <textarea id="message" placeholder="输入留言内容..."></textarea>
             
             <div class="buttons">
                 <button class="btn-primary" id="submit-btn">发布留言</button>
                 <button class="btn-secondary" id="clear-btn">清空本地</button>
-                <button class="btn-success" id="test-btn">测试连接</button>
-            </div>
-            
-            <div class="debug">
-                <strong>调试信息：</strong>
-                <div id="debug"></div>
+                <button class="btn-success" id="direct-test-btn">直接测试连接</button>
             </div>
         </div>
         
+        <div class="debug">
+            <strong>调试信息：</strong>
+            <div id="debug"></div>
+        </div>
+        
         <div class="messages" id="messages">
-            <div style="text-align: center; color: #666; padding: 20px;">
-                正在加载留言...
-            </div>
+            正在加载留言...
         </div>
     </div>
 
     <script>
         // ============================================
-        // 配置 - 使用你已有的SAS令牌
+        // 配置
         // ============================================
         const AZURE_CONFIG = {
             accountName: 'messageboard2025',
             tableName: 'messages',
-            // 使用你原来的SAS令牌（srt=co 也能工作）
             sasToken: '?sv=2024-11-04&ss=t&srt=co&sp=rwdl&se=2026-02-12T23:59:29Z&st=2025-12-02T15:44:29Z&spr=https&sig=1KAtGlI7tHgxyzXpqMKfn9G7EHBzsszqMxhaMKTfCbw%3D'
         };
         
-        const TABLE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}${AZURE_CONFIG.sasToken}`;
-        let isAzureConnected = false;
-
-        // 初始化
+        // 构建URL
+        const BASE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}`;
+        const FULL_URL = `${BASE_URL}${AZURE_CONFIG.sasToken}`;
+        
+        // ============================================
+        // 主函数
+        // ============================================
         document.addEventListener('DOMContentLoaded', function() {
-            log('初始化开始');
-            log(`表URL: ${TABLE_URL}`);
+            log('页面加载完成');
+            log(`Azure表URL: ${BASE_URL}`);
+            log(`SAS令牌: ${AZURE_CONFIG.sasToken.substring(0, 50)}...`);
             
             setupEventListeners();
-            loadMessages();
+            loadLocalMessages();
             
-            // 测试Azure连接
-            testAzureConnection();
+            // 测试连接
+            testConnection();
         });
 
-        // 测试Azure连接
-        async function testAzureConnection() {
+        // 测试连接 - 直接访问URL（不使用Fetch API）
+        async function testConnection() {
             try {
                 updateStatus('正在测试Azure连接...');
+                log('方法1: 直接测试连接...');
                 
-                // 直接测试连接
-                const response = await fetch(`${TABLE_URL}&$top=1`);
+                // 方法1: 使用JSONP方式（绕过CORS）
+                await testWithJsonp();
                 
-                log(`响应状态: ${response.status}`);
-                log(`响应类型: ${response.headers.get('content-type')}`);
-                
-                if (response.ok) {
-                    const text = await response.text();
-                    
-                    if (text.includes('<feed')) {
-                        // XML响应 - 连接成功但需要处理XML
-                        isAzureConnected = true;
-                        updateStatus('✅ Azure连接成功 (XML模式)');
-                        log('收到XML响应，连接成功');
-                        
-                        // 尝试添加数据测试
-                        await testAddMessage();
-                    } else if (text.includes('{"value"')) {
-                        // JSON响应
-                        isAzureConnected = true;
-                        updateStatus('✅ Azure连接成功 (JSON模式)');
-                        log('收到JSON响应，连接成功');
-                    }
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
-                }
             } catch (error) {
-                isAzureConnected = false;
+                log(`连接测试失败: ${error.message}`);
                 updateStatus('❌ Azure连接失败，使用本地存储');
-                log(`连接失败: ${error.message}`);
             }
         }
 
-        // 测试添加留言
-        async function testAddMessage() {
-            try {
-                const testMessage = {
-                    PartitionKey: 'messageBoard',
-                    RowKey: `test_${Date.now()}`,
-                    name: '测试用户',
-                    message: '这是一条测试留言',
-                    timestamp: new Date().toISOString()
+        // 使用JSONP方式测试
+        async function testWithJsonp() {
+            return new Promise((resolve, reject) => {
+                // 创建一个临时iframe来测试连接
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = `${FULL_URL}&$top=1&callback=testCallback`;
+                document.body.appendChild(iframe);
+                
+                // 全局回调函数
+                window.testCallback = function(data) {
+                    log('JSONP测试成功');
+                    document.body.removeChild(iframe);
+                    resolve(true);
                 };
                 
-                log('尝试添加测试留言...');
-                
-                const response = await fetch(TABLE_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(testMessage)
-                });
-                
-                log(`添加测试留言状态: ${response.status}`);
-                
-                if (response.ok || response.status === 204) {
-                    log('✅ 测试留言添加成功！');
-                    updateStatus('✅ Azure读写正常 (XML模式)');
+                // 超时处理
+                setTimeout(() => {
+                    // 尝试方法2: 使用代理
+                    testWithProxy().then(resolve).catch(reject);
+                }, 3000);
+            });
+        }
+
+        // 使用代理测试
+        async function testWithProxy() {
+            log('方法2: 使用CORS代理...');
+            
+            // 尝试多个免费CORS代理
+            const proxies = [
+                'https://api.allorigins.win/raw?url=',
+                'https://corsproxy.io/?',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ];
+            
+            for (let proxy of proxies) {
+                try {
+                    const proxyUrl = `${proxy}${encodeURIComponent(FULL_URL + '&$top=1')}`;
+                    log(`尝试代理: ${proxy.substring(0, 30)}...`);
+                    
+                    const response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const text = await response.text();
+                        log(`代理测试成功，响应长度: ${text.length}`);
+                        
+                        if (text.includes('<feed') || text.includes('{"value"')) {
+                            log('✅ Azure服务正常！');
+                            updateStatus('✅ Azure连接成功（通过代理）');
+                            
+                            // 保存代理地址供后续使用
+                            window.AZURE_PROXY = proxy;
+                            
+                            return true;
+                        }
+                    }
+                } catch (error) {
+                    log(`代理 ${proxy.substring(0, 30)}... 失败: ${error.message}`);
                 }
+            }
+            
+            throw new Error('所有代理都失败');
+        }
+
+        // 直接测试按钮
+        async function directTest() {
+            log('=== 直接测试开始 ===');
+            
+            // 在浏览器控制台显示可手动测试的URL
+            const testUrl = `${FULL_URL}&$top=1`;
+            log(`手动测试URL: ${testUrl}`);
+            log('请复制上面的URL到新标签页测试');
+            
+            // 尝试直接打开
+            window.open(testUrl, '_blank');
+            
+            // 尝试简单的fetch
+            try {
+                const response = await fetch(testUrl);
+                log(`直接fetch状态: ${response.status}`);
             } catch (error) {
-                log(`添加测试失败: ${error.message}`);
+                log(`直接fetch错误: ${error.message}`);
             }
         }
 
         // 加载留言
         async function loadMessages() {
             try {
-                // 先显示本地留言
+                // 先显示本地
                 const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
                 displayMessages(localMessages.map(m => ({ ...m, source: 'local' })));
                 
-                // 如果Azure已连接，尝试加载Azure留言
-                if (isAzureConnected) {
+                // 如果代理可用，尝试从Azure加载
+                if (window.AZURE_PROXY) {
                     await loadAzureMessages();
                 }
             } catch (error) {
-                log(`加载留言失败: ${error.message}`);
+                log(`加载留言错误: ${error.message}`);
             }
         }
 
         // 加载Azure留言
         async function loadAzureMessages() {
             try {
-                log('正在从Azure加载留言...');
-                
-                // 查询Azure Table
-                const queryUrl = `${TABLE_URL}&$filter=PartitionKey eq 'messageBoard'&$orderby=RowKey desc`;
+                const proxy = window.AZURE_PROXY;
+                const queryUrl = `${proxy}${encodeURIComponent(FULL_URL + '&$filter=PartitionKey eq \'messageBoard\'&$orderby=RowKey desc')}`;
                 
                 const response = await fetch(queryUrl);
                 const text = await response.text();
@@ -187,65 +216,34 @@
                     let azureMessages = [];
                     
                     if (text.includes('<feed')) {
-                        // 解析XML
-                        azureMessages = parseXmlMessages(text);
-                        log(`从XML解析出 ${azureMessages.length} 条留言`);
-                    } else if (text.includes('{"value"')) {
-                        // 解析JSON
-                        const data = JSON.parse(text);
-                        azureMessages = data.value || [];
-                        log(`从JSON解析出 ${azureMessages.length} 条留言`);
+                        // 简单解析XML
+                        const entries = text.split('<entry>');
+                        for (let entry of entries) {
+                            if (entry.includes('name') && entry.includes('message')) {
+                                const nameMatch = entry.match(/<d:name[^>]*>([^<]*)<\/d:name>/);
+                                const messageMatch = entry.match(/<d:message[^>]*>([^<]*)<\/d:message>/);
+                                const timeMatch = entry.match(/<d:timestamp[^>]*>([^<]*)<\/d:timestamp>/);
+                                
+                                if (nameMatch && messageMatch) {
+                                    azureMessages.push({
+                                        name: nameMatch[1],
+                                        message: messageMatch[1],
+                                        timestamp: timeMatch ? timeMatch[1] : new Date().toISOString(),
+                                        source: 'azure'
+                                    });
+                                }
+                            }
+                        }
                     }
                     
-                    // 添加来源标记并显示
-                    const markedMessages = azureMessages.map(m => ({ ...m, source: 'azure' }));
-                    displayMessages(markedMessages);
-                }
-            } catch (error) {
-                log(`加载Azure留言失败: ${error.message}`);
-            }
-        }
-
-        // 解析XML响应
-        function parseXmlMessages(xmlText) {
-            try {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                const entries = xmlDoc.getElementsByTagName('entry');
-                const messages = [];
-                
-                for (let entry of entries) {
-                    try {
-                        const properties = entry.getElementsByTagName('properties')[0];
-                        if (!properties) continue;
-                        
-                        const message = {
-                            PartitionKey: getXmlValue(properties, 'PartitionKey'),
-                            RowKey: getXmlValue(properties, 'RowKey'),
-                            name: getXmlValue(properties, 'name'),
-                            message: getXmlValue(properties, 'message'),
-                            timestamp: getXmlValue(properties, 'timestamp')
-                        };
-                        
-                        if (message.name && message.message) {
-                            messages.push(message);
-                        }
-                    } catch (e) {
-                        // 跳过解析错误的条目
+                    if (azureMessages.length > 0) {
+                        displayMessages(azureMessages);
+                        log(`从Azure加载了 ${azureMessages.length} 条留言`);
                     }
                 }
-                
-                return messages;
             } catch (error) {
-                log(`XML解析失败: ${error.message}`);
-                return [];
+                log(`加载Azure留言错误: ${error.message}`);
             }
-        }
-
-        // 获取XML值
-        function getXmlValue(parent, tagName) {
-            const elements = parent.getElementsByTagName(`d:${tagName}`);
-            return elements.length > 0 ? elements[0].textContent : '';
         }
 
         // 提交留言
@@ -261,40 +259,10 @@
             const newMessage = {
                 name: name || '匿名用户',
                 message: message,
-                timestamp: new Date().toISOString(),
-                device: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? '手机' : '电脑'
+                timestamp: new Date().toISOString()
             };
             
-            let savedTo = 'local';
-            
-            // 尝试保存到Azure
-            if (isAzureConnected) {
-                try {
-                    const entity = {
-                        PartitionKey: 'messageBoard',
-                        RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        ...newMessage
-                    };
-                    
-                    const response = await fetch(TABLE_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(entity)
-                    });
-                    
-                    if (response.ok || response.status === 204) {
-                        savedTo = 'azure';
-                        log('留言已保存到Azure');
-                    }
-                } catch (error) {
-                    log(`保存到Azure失败: ${error.message}`);
-                }
-            }
-            
-            // 同时保存到本地
+            // 保存到本地
             const localMessages = JSON.parse(localStorage.getItem('localMessages') || '[]');
             localMessages.unshift({ ...newMessage, source: 'local' });
             
@@ -304,14 +272,41 @@
             
             localStorage.setItem('localMessages', JSON.stringify(localMessages));
             
+            // 尝试保存到Azure（通过代理）
+            if (window.AZURE_PROXY) {
+                try {
+                    const entity = {
+                        PartitionKey: 'messageBoard',
+                        RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        ...newMessage
+                    };
+                    
+                    const proxy = window.AZURE_PROXY;
+                    const response = await fetch(`${proxy}${encodeURIComponent(FULL_URL)}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(entity)
+                    });
+                    
+                    if (response.ok) {
+                        log('留言已同时保存到Azure');
+                    }
+                } catch (error) {
+                    log(`保存到Azure失败: ${error.message}`);
+                }
+            }
+            
             // 清空输入框
             document.getElementById('name').value = '';
             document.getElementById('message').value = '';
             
-            // 重新加载留言
+            // 重新加载
             loadMessages();
             
-            alert(`留言已发布${savedTo === 'azure' ? '到Azure云端' : '到本地存储'}！`);
+            alert('留言已发布！');
         }
 
         // 显示留言
@@ -319,20 +314,21 @@
             const container = document.getElementById('messages');
             
             if (!messages || messages.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">还没有留言，成为第一个留言的人吧！</div>';
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">还没有留言</div>';
                 return;
             }
             
             container.innerHTML = messages.map(msg => `
-                <div class="message ${msg.source === 'azure' ? 'azure-msg' : 'local-msg'}">
-                    <div class="msg-header">
-                        <div class="msg-name">${escapeHtml(msg.name)}</div>
-                        <div class="msg-time">${formatTime(msg.timestamp)}</div>
+                <div class="message">
+                    <div style="font-weight: bold; color: #0078d4;">
+                        ${escapeHtml(msg.name)} 
+                        <span style="float: right; font-size: 12px; color: #666;">
+                            ${formatTime(msg.timestamp)}
+                        </span>
                     </div>
-                    <div>${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
-                    <div class="msg-source">
+                    <div style="margin: 5px 0;">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
+                    <div style="font-size: 12px; color: #666;">
                         ${msg.source === 'azure' ? '🌩️ Azure云端' : '💾 本地存储'}
-                        ${msg.device ? ` · ${msg.device}` : ''}
                     </div>
                 </div>
             `).join('');
@@ -352,11 +348,11 @@
         function setupEventListeners() {
             document.getElementById('submit-btn').addEventListener('click', submitMessage);
             document.getElementById('clear-btn').addEventListener('click', clearLocalMessages);
-            document.getElementById('test-btn').addEventListener('click', testAzureConnection);
+            document.getElementById('direct-test-btn').addEventListener('click', directTest);
             
-            // Ctrl+Enter提交
+            // Enter提交
             document.getElementById('message').addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') {
+                if (e.key === 'Enter' && e.ctrlKey) {
                     e.preventDefault();
                     submitMessage();
                 }
@@ -365,7 +361,16 @@
 
         // 更新状态
         function updateStatus(text) {
-            document.getElementById('status').textContent = text;
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = text;
+            
+            if (text.includes('✅')) {
+                statusEl.className = 'status connected';
+            } else if (text.includes('❌')) {
+                statusEl.className = 'status disconnected';
+            } else {
+                statusEl.className = 'status';
+            }
         }
 
         // 调试日志
@@ -379,14 +384,16 @@
 
         // 辅助函数
         function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         function formatTime(isoString) {
-            if (!isoString) return '未知时间';
+            if (!isoString) return '';
             const date = new Date(isoString);
             const now = new Date();
             const diff = now - date;
@@ -396,6 +403,13 @@
             if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
             
             return date.toLocaleDateString('zh-CN');
+        }
+        
+        // 加载本地留言
+        function loadLocalMessages() {
+            const messages = JSON.parse(localStorage.getItem('localMessages') || '[]');
+            displayMessages(messages.map(m => ({ ...m, source: 'local' })));
+            log(`从本地加载了 ${messages.length} 条留言`);
         }
     </script>
 </body>
