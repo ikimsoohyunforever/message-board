@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 GitHub留言板</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            margin: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #0078d4, #00bcf2);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .form-section {
+            padding: 30px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        input, textarea {
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 16px;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 0 3px rgba(0,120,212,0.1);
+        }
+        
+        #name {
+            flex: 1;
+        }
+        
+        #message {
+            width: 100%;
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #submit-btn {
+            background: #0078d4;
+            color: white;
+        }
+        
+        #submit-btn:hover {
+            background: #106ebe;
+            transform: translateY(-2px);
+        }
+        
+        #clear-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        #clear-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .messages-section {
+            padding: 30px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .message-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #0078d4;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .message-name {
+            font-weight: bold;
+            color: #0078d4;
+            font-size: 1.1rem;
+        }
+        
+        .message-time {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .message-content {
+            color: #333;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #0078d4;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            input, textarea {
+                min-width: 100%;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 20px;
+            }
+            
+            .form-section, .messages-section {
+                padding: 20px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-comments"></i> GitHub留言板</h1>
+            <p>纯前端实现 · 无需后端 · 完全免费</p>
+        </div>
+        
+        <div class="form-section">
+            <div class="input-group">
+                <input type="text" id="name" placeholder="你的名字" maxlength="20">
+                <textarea id="message" placeholder="输入留言内容... (支持换行)" maxlength="500"></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button id="submit-btn" onclick="submitMessage()">
+                    <i class="fas fa-paper-plane"></i> 发布留言
+                </button>
+                <button id="clear-btn" onclick="clearMessages()">
+                    <i class="fas fa-trash"></i> 清空本地留言
+                </button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="message-count">0</div>
+                    <div class="stat-label">留言总数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="char-count">0</div>
+                    <div class="stat-label">当前字数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="storage-usage">0%</div>
+                    <div class="stat-label">存储使用</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="messages-section">
+            <div id="messages-container">
+                <!-- 留言动态加载 -->
+                <div class="empty-state" id="empty-state">
+                    <i class="fas fa-comment-slash"></i>
+                    <h3>还没有留言</h3>
+                    <p>成为第一个留言的人吧！</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>数据存储于浏览器本地 | 支持手机/电脑访问 | 刷新页面不会丢失留言</p>
+            <p style="margin-top: 10px; font-size: 0.8rem; color: #888;">
+                提示：此留言板使用 localStorage，不同设备间留言不共享
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMessages();
+            updateStats();
+            
+            // 监听输入
+            document.getElementById('message').addEventListener('input', function() {
+                document.getElementById('char-count').textContent = this.value.length;
+            });
+            
+            // 回车快捷提交（Ctrl+Enter）
+            document.getElementById('message').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    submitMessage();
+                }
+            });
+        });
+
+        // 获取留言列表
+        function getMessages() {
+            const messages = localStorage.getItem('messageBoard');
+            return messages ? JSON.parse(messages) : [];
+        }
+
+        // 保存留言
+        function saveMessages(messages) {
+            localStorage.setItem('messageBoard', JSON.stringify(messages));
+            updateStats();
+        }
+
+        // 加载并显示留言
+        function loadMessages() {
+            const messages = getMessages();
+            const container = document.getElementById('messages-container');
+            
+            if (messages.length === 0) {
+                document.getElementById('empty-state').style.display = 'block';
+                container.innerHTML = '<div class="empty-state" id="empty-state"><i class="fas fa-comment-slash"></i><h3>还没有留言</h3><p>成为第一个留言的人吧！</p></div>';
+                return;
+            }
+            
+            document.getElementById('empty-state').style.display = 'none';
+            
+            container.innerHTML = messages.map((msg, index) => `
+                <div class="message-card" data-index="${index}">
+                    <div class="message-header">
+                        <div class="message-name">
+                            <i class="fas fa-user"></i> ${escapeHtml(msg.name) || '匿名用户'}
+                        </div>
+                        <div class="message-time">
+                            ${formatTime(msg.timestamp)}
+                        </div>
+                    </div>
+                    <div class="message-content">
+                        ${escapeHtml(msg.message).replace(/\n/g, '<br>')}
+                    </div>
+                    <div style="margin-top: 10px; text-align: right;">
+                        <button onclick="deleteMessage(${index})" style="padding: 5px 10px; font-size: 12px; background: #ff6b6b;">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            updateStats();
+        }
+
+        // 提交留言
+        function submitMessage() {
+            const name = document.getElementById('name').value.trim();
+            const message = document.getElementById('message').value.trim();
+            
+            if (!message) {
+                alert('请输入留言内容');
+                document.getElementById('message').focus();
+                return;
+            }
+            
+            if (message.length > 500) {
+                alert('留言不能超过500字');
+                return;
+            }
+            
+            const messages = getMessages();
+            
+            // 添加到开头（新的在前）
+            messages.unshift({
+                name: name || '匿名用户',
+                message: message,
+                timestamp: new Date().toISOString()
+            });
+            
+            // 限制最多保存100条留言
+            if (messages.length > 100) {
+                messages.pop();
+            }
+            
+            saveMessages(messages);
+            
+            // 清空输入框
+            document.getElementById('name').value = '';
+            document.getElementById('message').value = '';
+            document.getElementById('char-count').textContent = '0';
+            
+            // 重新加载留言
+            loadMessages();
+            
+            // 显示成功提示
+            showNotification('留言发布成功！');
+        }
+
+        // 删除单条留言
+        function deleteMessage(index) {
+            if (!confirm('确定删除这条留言吗？')) return;
+            
+            const messages = getMessages();
+            messages.splice(index, 1);
+            saveMessages(messages);
+            loadMessages();
+            showNotification('留言已删除');
+        }
+
+        // 清空所有留言
+        function clearMessages() {
+            if (!confirm('确定清空所有留言吗？此操作不可撤销！')) return;
+            
+            localStorage.removeItem('messageBoard');
+            loadMessages();
+            showNotification('所有留言已清空');
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const messages = getMessages();
+            const messageCount = messages.length;
+            const storageUsed = JSON.stringify(messages).length;
+            const maxStorage = 5 * 1024 * 1024; // 5MB
+            const storagePercent = Math.min(Math.round((storageUsed / 50000) * 100), 100);
+            
+            document.getElementById('message-count').textContent = messageCount;
+            document.getElementById('storage-usage').textContent = storagePercent + '%';
+        }
+
+        // 显示通知
+        function showNotification(text) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #0078d4;
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.innerHTML = `<i class="fas fa-check-circle"></i> ${text}`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+            
+            // 添加动画样式
+            if (!document.querySelector('#notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // 辅助函数：转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 辅助函数：格式化时间
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = now - date;
+            
+            // 刚刚
+            if (diff < 60000) return '刚刚';
+            
+            // 几分钟前
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            
+            // 几小时前
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            
+            // 日期
+            return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+    </script>
+</body>
+</html>
