@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📝 GitHub留言板</title>
+    <title>📝 Azure留言板</title>
     <style>
         * {
             box-sizing: border-box;
@@ -122,6 +122,16 @@
             background: #e0e0e0;
         }
         
+        #refresh-btn {
+            background: #6c757d;
+            color: white;
+        }
+        
+        #refresh-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
         .messages-section {
             padding: 30px;
             max-height: 500px;
@@ -135,6 +145,14 @@
             margin-bottom: 15px;
             border-left: 5px solid #0078d4;
             animation: fadeIn 0.5s ease;
+        }
+        
+        .azure-card {
+            border-left: 5px solid #28a745;
+        }
+        
+        .local-card {
+            border-left: 5px solid #ffc107;
         }
         
         @keyframes fadeIn {
@@ -164,6 +182,24 @@
             color: #333;
             line-height: 1.6;
             white-space: pre-wrap;
+        }
+        
+        .message-source {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            margin-top: 8px;
+        }
+        
+        .azure-source {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .local-source {
+            background: #fff3cd;
+            color: #856404;
         }
         
         .empty-state {
@@ -210,6 +246,29 @@
             color: #666;
         }
         
+        .connection-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .connected {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        .disconnected {
+            background-color: #dc3545;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -247,22 +306,28 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-comments"></i> GitHub留言板</h1>
-            <p>纯前端实现 · 无需后端 · 完全免费</p>
+            <h1><i class="fas fa-comments"></i> Azure留言板</h1>
+            <p>
+                <span id="connection-status" class="connection-status disconnected"></span>
+                <span id="status-text">正在连接Azure...</span>
+            </p>
         </div>
         
         <div class="form-section">
             <div class="input-group">
                 <input type="text" id="name" placeholder="你的名字" maxlength="20">
-                <textarea id="message" placeholder="输入留言内容... (支持换行)" maxlength="500"></textarea>
+                <textarea id="message" placeholder="输入留言内容... (支持换行，Ctrl+Enter快速提交)" maxlength="500"></textarea>
             </div>
             
             <div class="button-group">
-                <button id="submit-btn" onclick="submitMessage()">
+                <button id="submit-btn">
                     <i class="fas fa-paper-plane"></i> 发布留言
                 </button>
-                <button id="clear-btn" onclick="clearMessages()">
-                    <i class="fas fa-trash"></i> 清空本地留言
+                <button id="clear-btn">
+                    <i class="fas fa-trash"></i> 清空本地
+                </button>
+                <button id="refresh-btn">
+                    <i class="fas fa-sync-alt"></i> 刷新留言
                 </button>
             </div>
             
@@ -276,80 +341,300 @@
                     <div class="stat-label">当前字数</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="storage-usage">0%</div>
-                    <div class="stat-label">存储使用</div>
+                    <div class="stat-value" id="storage-mode">本地</div>
+                    <div class="stat-label">存储模式</div>
                 </div>
             </div>
         </div>
         
         <div class="messages-section">
             <div id="messages-container">
-                <!-- 留言动态加载 -->
                 <div class="empty-state" id="empty-state">
                     <i class="fas fa-comment-slash"></i>
-                    <h3>还没有留言</h3>
-                    <p>成为第一个留言的人吧！</p>
+                    <h3>正在加载留言...</h3>
+                    <p>请稍候</p>
                 </div>
             </div>
         </div>
         
         <div class="footer">
-            <p>数据存储于浏览器本地 | 支持手机/电脑访问 | 刷新页面不会丢失留言</p>
+            <p id="storage-info">正在检测存储模式...</p>
             <p style="margin-top: 10px; font-size: 0.8rem; color: #888;">
-                提示：此留言板使用 localStorage，不同设备间留言不共享
+                <i class="fas fa-circle" style="color: #28a745;"></i> Azure云端存储 | 
+                <i class="fas fa-circle" style="color: #ffc107;"></i> 浏览器本地存储
             </p>
         </div>
     </div>
 
     <script>
+        // ============================================
+        // 重要：请修改以下三个值为你的Azure配置信息
+        // ============================================
+        const AZURE_CONFIG = {
+            // 1. 你的存储账户名（在Azure Portal中查看）
+            accountName: 'messageboard2025',
+            
+            // 2. 表名（默认messages，小写）
+            tableName: 'messages',
+            
+            // 3. 你的SAS令牌（从Azure Portal复制）
+            sasToken: 'sv=2024-11-04&ss=bfqt&srt=co&sp=rwdlacupiytfx&se=2026-09-30T23:29:07Z&st=2025-12-04T15:14:07Z&spr=https&sig=mhpT3yQ15ufVoNRX6osqM%2BgjuFD2OivOSCeuqjmPH5E%3D'
+        };
+        // ============================================
+        
+        // 构建完整URL
+        const TABLE_URL = `https://${AZURE_CONFIG.accountName}.table.core.windows.net/${AZURE_CONFIG.tableName}${AZURE_CONFIG.sasToken}`;
+        
+        let isAzureConnected = false;
+        let allMessages = [];
+
         // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            loadMessages();
-            updateStats();
-            
-            // 监听输入
-            document.getElementById('message').addEventListener('input', function() {
-                document.getElementById('char-count').textContent = this.value.length;
-            });
-            
-            // 回车快捷提交（Ctrl+Enter）
-            document.getElementById('message').addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') {
-                    submitMessage();
-                }
-            });
+        document.addEventListener('DOMContentLoaded', async function() {
+            setupEventListeners();
+            await testAzureConnection();
+            await loadAllMessages();
         });
 
-        // 获取留言列表
-        function getMessages() {
-            const messages = localStorage.getItem('messageBoard');
-            return messages ? JSON.parse(messages) : [];
+        // 测试Azure连接
+        async function testAzureConnection() {
+            try {
+                updateStatus('正在连接Azure...', 'disconnected');
+                
+                const testUrl = `${TABLE_URL}&$top=1`;
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'DataServiceVersion': '3.0'
+                    }
+                });
+                
+                if (response.ok) {
+                    isAzureConnected = true;
+                    updateStatus('已连接Azure云端', 'connected');
+                    document.getElementById('storage-mode').textContent = '云端';
+                    document.getElementById('storage-info').textContent = '数据存储于Azure云端 | 支持多人共享 | 跨设备同步';
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.warn('Azure连接失败，使用本地模式:', error);
+                isAzureConnected = false;
+                updateStatus('使用本地存储模式', 'disconnected');
+                document.getElementById('storage-mode').textContent = '本地';
+                document.getElementById('storage-info').textContent = '数据存储于浏览器本地 | 不同设备间留言不共享';
+                return false;
+            }
         }
 
-        // 保存留言
-        function saveMessages(messages) {
-            localStorage.setItem('messageBoard', JSON.stringify(messages));
-            updateStats();
-        }
-
-        // 加载并显示留言
-        function loadMessages() {
-            const messages = getMessages();
-            const container = document.getElementById('messages-container');
+        // 加载所有留言
+        async function loadAllMessages() {
+            showLoading(true);
             
-            if (messages.length === 0) {
-                document.getElementById('empty-state').style.display = 'block';
-                container.innerHTML = '<div class="empty-state" id="empty-state"><i class="fas fa-comment-slash"></i><h3>还没有留言</h3><p>成为第一个留言的人吧！</p></div>';
+            try {
+                let azureMessages = [];
+                let localMessages = [];
+                
+                // 尝试从Azure加载
+                if (isAzureConnected) {
+                    azureMessages = await loadFromAzure();
+                }
+                
+                // 从本地加载
+                localMessages = loadFromLocal();
+                
+                // 合并留言（Azure优先）
+                allMessages = [...azureMessages, ...localMessages];
+                
+                // 按时间排序
+                allMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                // 显示留言
+                displayMessages(allMessages);
+                updateStats();
+                
+            } catch (error) {
+                console.error('加载留言失败:', error);
+                showNotification('加载留言失败', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 从Azure加载留言
+        async function loadFromAzure() {
+            try {
+                const queryUrl = `${TABLE_URL}&$filter=PartitionKey eq 'messageBoard'&$orderby=RowKey desc&$top=100`;
+                
+                const response = await fetch(queryUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'DataServiceVersion': '3.0'
+                    }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                const messages = data.value || [];
+                
+                // 添加来源标记
+                return messages.map(msg => ({
+                    ...msg,
+                    source: 'azure'
+                }));
+                
+            } catch (error) {
+                console.error('从Azure加载失败:', error);
+                return [];
+            }
+        }
+
+        // 从本地加载留言
+        function loadFromLocal() {
+            try {
+                const messages = JSON.parse(localStorage.getItem('localMessages') || '[]');
+                return messages.map(msg => ({
+                    ...msg,
+                    source: 'local'
+                }));
+            } catch (error) {
+                console.error('从本地加载失败:', error);
+                return [];
+            }
+        }
+
+        // 提交留言
+        async function submitMessage() {
+            const name = document.getElementById('name').value.trim();
+            const message = document.getElementById('message').value.trim();
+            
+            if (!message) {
+                showNotification('请输入留言内容', 'error');
                 return;
             }
             
-            document.getElementById('empty-state').style.display = 'none';
+            if (message.length > 500) {
+                showNotification('留言不能超过500字', 'error');
+                return;
+            }
             
-            container.innerHTML = messages.map((msg, index) => `
-                <div class="message-card" data-index="${index}">
+            showNotification('正在发布留言...', 'info');
+            
+            const newMessage = {
+                name: name || '匿名用户',
+                message: message,
+                timestamp: new Date().toISOString(),
+                device: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? '手机' : '电脑'
+            };
+            
+            let success = false;
+            
+            // 优先尝试保存到Azure
+            if (isAzureConnected) {
+                success = await saveToAzure(newMessage);
+            }
+            
+            // 如果Azure失败或未连接，保存到本地
+            if (!success) {
+                success = saveToLocal(newMessage);
+            }
+            
+            if (success) {
+                // 清空输入框
+                document.getElementById('name').value = '';
+                document.getElementById('message').value = '';
+                document.getElementById('char-count').textContent = '0';
+                
+                // 重新加载留言
+                await loadAllMessages();
+                
+                const source = isAzureConnected && success ? '云端' : '本地';
+                showNotification(`留言已保存到${source}`, 'success');
+            } else {
+                showNotification('留言保存失败', 'error');
+            }
+        }
+
+        // 保存到Azure
+        async function saveToAzure(message) {
+            try {
+                const entity = {
+                    PartitionKey: 'messageBoard',
+                    RowKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    ...message
+                };
+                
+                const response = await fetch(TABLE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return-no-content'
+                    },
+                    body: JSON.stringify(entity)
+                });
+                
+                return response.ok || response.status === 204;
+            } catch (error) {
+                console.error('保存到Azure失败:', error);
+                return false;
+            }
+        }
+
+        // 保存到本地
+        function saveToLocal(message) {
+            try {
+                const messages = JSON.parse(localStorage.getItem('localMessages') || '[]');
+                messages.unshift({
+                    ...message,
+                    source: 'local'
+                });
+                
+                // 限制最多50条本地留言
+                if (messages.length > 50) {
+                    messages.length = 50;
+                }
+                
+                localStorage.setItem('localMessages', JSON.stringify(messages));
+                return true;
+            } catch (error) {
+                console.error('保存到本地失败:', error);
+                return false;
+            }
+        }
+
+        // 清空本地留言
+        function clearLocalMessages() {
+            if (!confirm('确定清空所有本地留言吗？云端留言不会被删除。')) return;
+            
+            localStorage.removeItem('localMessages');
+            loadAllMessages();
+            showNotification('本地留言已清空', 'success');
+        }
+
+        // 显示留言
+        function displayMessages(messages) {
+            const container = document.getElementById('messages-container');
+            
+            if (!messages || messages.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" id="empty-state">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>还没有留言</h3>
+                        <p>成为第一个留言的人吧！</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => `
+                <div class="message-card ${msg.source === 'azure' ? 'azure-card' : 'local-card'}">
                     <div class="message-header">
                         <div class="message-name">
-                            <i class="fas fa-user"></i> ${escapeHtml(msg.name) || '匿名用户'}
+                            <i class="fas fa-user"></i> ${escapeHtml(msg.name)}
                         </div>
                         <div class="message-time">
                             ${formatTime(msg.timestamp)}
@@ -358,115 +643,120 @@
                     <div class="message-content">
                         ${escapeHtml(msg.message).replace(/\n/g, '<br>')}
                     </div>
-                    <div style="margin-top: 10px; text-align: right;">
-                        <button onclick="deleteMessage(${index})" style="padding: 5px 10px; font-size: 12px; background: #ff6b6b;">
-                            <i class="fas fa-trash"></i> 删除
-                        </button>
+                    <div>
+                        <span class="message-source ${msg.source === 'azure' ? 'azure-source' : 'local-source'}">
+                            <i class="fas fa-${msg.source === 'azure' ? 'cloud' : 'desktop'}"></i>
+                            ${msg.source === 'azure' ? 'Azure云端' : '本地存储'}
+                            ${msg.device ? ` · ${msg.device}` : ''}
+                        </span>
                     </div>
                 </div>
             `).join('');
-            
-            updateStats();
-        }
-
-        // 提交留言
-        function submitMessage() {
-            const name = document.getElementById('name').value.trim();
-            const message = document.getElementById('message').value.trim();
-            
-            if (!message) {
-                alert('请输入留言内容');
-                document.getElementById('message').focus();
-                return;
-            }
-            
-            if (message.length > 500) {
-                alert('留言不能超过500字');
-                return;
-            }
-            
-            const messages = getMessages();
-            
-            // 添加到开头（新的在前）
-            messages.unshift({
-                name: name || '匿名用户',
-                message: message,
-                timestamp: new Date().toISOString()
-            });
-            
-            // 限制最多保存100条留言
-            if (messages.length > 100) {
-                messages.pop();
-            }
-            
-            saveMessages(messages);
-            
-            // 清空输入框
-            document.getElementById('name').value = '';
-            document.getElementById('message').value = '';
-            document.getElementById('char-count').textContent = '0';
-            
-            // 重新加载留言
-            loadMessages();
-            
-            // 显示成功提示
-            showNotification('留言发布成功！');
-        }
-
-        // 删除单条留言
-        function deleteMessage(index) {
-            if (!confirm('确定删除这条留言吗？')) return;
-            
-            const messages = getMessages();
-            messages.splice(index, 1);
-            saveMessages(messages);
-            loadMessages();
-            showNotification('留言已删除');
-        }
-
-        // 清空所有留言
-        function clearMessages() {
-            if (!confirm('确定清空所有留言吗？此操作不可撤销！')) return;
-            
-            localStorage.removeItem('messageBoard');
-            loadMessages();
-            showNotification('所有留言已清空');
         }
 
         // 更新统计信息
         function updateStats() {
-            const messages = getMessages();
-            const messageCount = messages.length;
-            const storageUsed = JSON.stringify(messages).length;
-            const maxStorage = 5 * 1024 * 1024; // 5MB
-            const storagePercent = Math.min(Math.round((storageUsed / 50000) * 100), 100);
+            const azureCount = allMessages.filter(m => m.source === 'azure').length;
+            const localCount = allMessages.filter(m => m.source === 'local').length;
+            const totalCount = allMessages.length;
             
-            document.getElementById('message-count').textContent = messageCount;
-            document.getElementById('storage-usage').textContent = storagePercent + '%';
+            document.getElementById('message-count').textContent = totalCount;
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 提交按钮
+            document.getElementById('submit-btn').addEventListener('click', submitMessage);
+            
+            // 清空按钮
+            document.getElementById('clear-btn').addEventListener('click', clearLocalMessages);
+            
+            // 刷新按钮
+            document.getElementById('refresh-btn').addEventListener('click', loadAllMessages);
+            
+            // 实时字数统计
+            document.getElementById('message').addEventListener('input', function() {
+                document.getElementById('char-count').textContent = this.value.length;
+            });
+            
+            // Ctrl+Enter快捷提交
+            document.getElementById('message').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            });
+            
+            // 回车提交（Shift+Enter换行）
+            document.getElementById('message').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            });
+        }
+
+        // 更新连接状态
+        function updateStatus(text, status) {
+            const statusEl = document.getElementById('connection-status');
+            const textEl = document.getElementById('status-text');
+            
+            statusEl.className = `connection-status ${status}`;
+            textEl.textContent = text;
+        }
+
+        // 显示/隐藏加载状态
+        function showLoading(show) {
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) {
+                if (show) {
+                    emptyState.innerHTML = `
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <h3>正在加载留言...</h3>
+                        <p>请稍候</p>
+                    `;
+                    emptyState.style.display = 'block';
+                } else {
+                    emptyState.style.display = 'none';
+                }
+            }
         }
 
         // 显示通知
-        function showNotification(text) {
+        function showNotification(text, type = 'info') {
+            const colors = {
+                success: '#28a745',
+                error: '#dc3545',
+                warning: '#ffc107',
+                info: '#17a2b8'
+            };
+            
+            const icon = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                background: #0078d4;
+                background: ${colors[type]};
                 color: white;
                 padding: 15px 25px;
                 border-radius: 10px;
                 box-shadow: 0 5px 15px rgba(0,0,0,0.2);
                 z-index: 1000;
                 animation: slideIn 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                max-width: 400px;
             `;
-            notification.innerHTML = `<i class="fas fa-check-circle"></i> ${text}`;
+            notification.innerHTML = `<i class="fas ${icon[type]}"></i> ${text}`;
             document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
             
             // 添加动画样式
             if (!document.querySelector('#notification-styles')) {
@@ -484,10 +774,16 @@
                 `;
                 document.head.appendChild(style);
             }
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
         }
 
         // 辅助函数：转义HTML
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
@@ -495,21 +791,20 @@
 
         // 辅助函数：格式化时间
         function formatTime(isoString) {
+            if (!isoString) return '未知时间';
             const date = new Date(isoString);
             const now = new Date();
             const diff = now - date;
             
-            // 刚刚
             if (diff < 60000) return '刚刚';
-            
-            // 几分钟前
             if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-            
-            // 几小时前
             if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
             
-            // 日期
-            return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleDateString('zh-CN') + ' ' + 
+                   date.toLocaleTimeString('zh-CN', { 
+                       hour: '2-digit', 
+                       minute: '2-digit' 
+                   });
         }
     </script>
 </body>
