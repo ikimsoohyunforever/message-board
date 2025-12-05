@@ -1,0 +1,279 @@
+/* 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f8f9fa;
+    /* 添加背景图片 */
+    background-image: url('../bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
+
+/* 为了使内容更易读，添加半透明遮罩层 */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.85); /* 半透明白色遮罩 */
+    z-index: -1; /* 放在内容后面 */
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative; /* 确保内容在遮罩层之上 */
+}
+
+/* 标题样式 */
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 2.5rem;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8); /* 文字阴影增强可读性 */
+}
+
+/* 状态栏 */
+#status {
+    background-color: rgba(233, 236, 239, 0.9); /* 增加透明度 */
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #666;
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+}
+
+/* 输入区域 */
+.input-section {
+    background-color: rgba(255, 255, 255, 0.95); /* 增加透明度 */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+}
+
+input, textarea {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+    background-color: rgba(255, 255, 255, 0.9); /* 输入框半透明 */
+}
+
+input:focus, textarea:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    background-color: white; /* 聚焦时变全白 */
+}
+
+/* 按钮样式 */
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s;
+    flex: 1;
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+    background-color: rgba(74, 144, 226, 0.9); /* 半透明蓝色 */
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #357ae8;
+}
+
+.btn-success {
+    background-color: rgba(40, 167, 69, 0.9); /* 半透明绿色 */
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-danger {
+    background-color: rgba(220, 53, 69, 0.9); /* 半透明红色 */
+    color: white;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+/* 留言样式 */
+.message {
+    background-color: rgba(255, 255, 255, 0.95); /* 增加透明度 */
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    border-left: 4px solid #4a90e2;
+    transition: transform 0.2s;
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+}
+
+.message:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    gap: 600px;  /* 添加间隙，防止按钮太靠近用户名 */
+}
+
+.message-author {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 18px;
+}
+
+.message-content {
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 15px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.message-meta {
+    color: #666;
+    font-size: 12px;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
+.meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 5px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.meta-label {
+    font-weight: bold;
+    color: #555;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    background-color: rgba(255, 255, 255, 0.95); /* 增加透明度 */
+    border-radius: 8px;
+    margin-top: 20px;
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ddd;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .message-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .meta-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    /* 移动端优化背景 */
+    body {
+        background-attachment: scroll; /* 移动端取消固定背景 */
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 通知样式优化（背景图片时更清晰） */
+.notification {
+    backdrop-filter: blur(10px) !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+
